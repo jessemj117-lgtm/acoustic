@@ -77,3 +77,29 @@ def references():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+@app.route("/api/scan", methods=["POST"])
+def receive_scan():
+    from flask import request
+
+    data = request.get_json()
+
+    scan_data = {
+        "scan_id": data.get("scan_id"),
+        "f0": data.get("f0"),
+        "rms": data.get("rms"),
+        "q_factor": data.get("q_factor"),
+        "bandwidth": data.get("bandwidth")
+    }
+
+    result = (
+        supabase
+        .table("scan_measurements")
+        .insert(scan_data)
+        .execute()
+    )
+
+    return jsonify({
+        "success": True,
+        "message": "Scan data saved",
+        "data": result.data
+    })
