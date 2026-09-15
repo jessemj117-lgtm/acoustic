@@ -1,1 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acoustic Bone Scanner</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>Acoustic Bone Scanner</h1>
+        <p>Acoustic Resonance Screening System</p>
+    </header>
+
+    <section class="status">
+        <span class="dot"></span>
+        System Online
+        <span class="database">Supabase Database Connected</span>
+    </section>
+
+    <section class="cards">
+
+        <div class="card">
+            <h3>Resonance Frequency</h3>
+            <div class="value">{{ f0 }} Hz</div>
+        </div>
+
+        <div class="card">
+            <h3>RMS Response</h3>
+            <div class="value">{{ rms }}</div>
+        </div>
+
+        <div class="card">
+            <h3>Q Factor</h3>
+            <div class="value">{{ q }}</div>
+        </div>
+
+        <div class="card">
+            <h3>Bandwidth</h3>
+            <div class="value">{{ bandwidth }} Hz</div>
+        </div>
+
+    </section>
+
+    <section class="panel">
+        <h2>Resonance Response</h2>
+        <canvas id="resonanceChart"></canvas>
+    </section>
+
+    <section class="panel">
+        <h2>Reference Database</h2>
+
+        {% if references %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sample ID</th>
+                        <th>f0 (Hz)</th>
+                        <th>RMS</th>
+                        <th>Q Factor</th>
+                        <th>Bandwidth</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for ref in references %}
+                    <tr>
+                        <td>{{ ref.sample_id }}</td>
+                        <td>{{ ref.f0 }}</td>
+                        <td>{{ ref.rms }}</td>
+                        <td>{{ ref.q_factor }}</td>
+                        <td>{{ ref.bandwidth }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="empty">
+                No reference measurements recorded yet.
+            </p>
+        {% endif %}
+    </section>
+
+    <footer>
+        Experimental screening/research prototype.
+        Not a clinical osteoporosis diagnostic device.
+    </footer>
+
+</div>
+
+<script>
+const points = {{ points | tojson }};
+
+const labels = points.map(p => p.frequency);
+const values = points.map(p => p.rms);
+
+new Chart(document.getElementById("resonanceChart"), {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "RMS Response",
+            data: values,
+            tension: 0.25,
+            fill: false
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: "Frequency (Hz)"
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: "RMS"
+                }
+            }
+        }
+    }
+});
+</script>
+
+</body>
+</html>
