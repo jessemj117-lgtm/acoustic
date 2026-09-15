@@ -1,137 +1,1412 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acoustic Bone Scanner</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>
+Acoustic Bone Scanner
+</title>
+
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+
+body {
+
+    margin: 0;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background:
+        #f4f6f8;
+
+    color:
+        #202124;
+}
+
+
+/* ==========================================================
+   HEADER
+   ========================================================== */
+
+.header {
+
+    background:
+        #1f2937;
+
+    color:
+        white;
+
+    padding:
+        20px;
+
+}
+
+
+.header-content {
+
+    max-width:
+        1200px;
+
+    margin:
+        auto;
+
+}
+
+
+.header h1 {
+
+    margin:
+        0;
+
+    font-size:
+        25px;
+
+}
+
+
+.header p {
+
+    margin:
+        6px 0 0;
+
+    color:
+        #d1d5db;
+
+}
+
+
+/* ==========================================================
+   MAIN
+   ========================================================== */
+
+.container {
+
+    max-width:
+        1200px;
+
+    margin:
+        auto;
+
+    padding:
+        20px;
+
+}
+
+
+/* ==========================================================
+   CONNECTION STATUS
+   ========================================================== */
+
+.status-bar {
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    padding:
+        15px 18px;
+
+    margin-bottom:
+        20px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.status-dot {
+
+    display:
+        inline-block;
+
+    width:
+        11px;
+
+    height:
+        11px;
+
+    border-radius:
+        50%;
+
+    background:
+        #22c55e;
+
+    margin-right:
+        8px;
+
+}
+
+
+.status-text {
+
+    font-weight:
+        bold;
+
+}
+
+
+.last-update {
+
+    float:
+        right;
+
+    color:
+        #6b7280;
+
+    font-size:
+        13px;
+
+}
+
+
+/* ==========================================================
+   CARDS
+   ========================================================== */
+
+.cards {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap:
+        15px;
+
+    margin-bottom:
+        20px;
+
+}
+
+
+.card {
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    padding:
+        20px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.card-title {
+
+    font-size:
+        14px;
+
+    color:
+        #6b7280;
+
+    margin-bottom:
+        10px;
+
+}
+
+
+.card-value {
+
+    font-size:
+        27px;
+
+    font-weight:
+        bold;
+
+}
+
+
+.card-unit {
+
+    font-size:
+        13px;
+
+    color:
+        #6b7280;
+
+}
+
+
+/* ==========================================================
+   UPLOAD STATUS
+   ========================================================== */
+
+.upload-card {
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    padding:
+        20px;
+
+    margin-bottom:
+        20px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.upload-success {
+
+    color:
+        #15803d;
+
+    font-weight:
+        bold;
+
+}
+
+
+.upload-empty {
+
+    color:
+        #6b7280;
+
+}
+
+
+/* ==========================================================
+   GRAPH
+   ========================================================== */
+
+.graph-card {
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    padding:
+        20px;
+
+    margin-bottom:
+        20px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.graph-card h2 {
+
+    margin-top:
+        0;
+
+}
+
+
+canvas {
+
+    width:
+        100%;
+
+    max-height:
+        350px;
+
+}
+
+
+/* ==========================================================
+   TABLE
+   ========================================================== */
+
+.table-card {
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    padding:
+        20px;
+
+    margin-bottom:
+        20px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0,0,0,0.08);
+
+    overflow-x:
+        auto;
+
+}
+
+
+.table-card h2 {
+
+    margin-top:
+        0;
+
+}
+
+
+table {
+
+    width:
+        100%;
+
+    border-collapse:
+        collapse;
+
+}
+
+
+th,
+td {
+
+    padding:
+        12px;
+
+    text-align:
+        left;
+
+    border-bottom:
+        1px solid #e5e7eb;
+
+    white-space:
+        nowrap;
+
+}
+
+
+th {
+
+    background:
+        #f9fafb;
+
+    font-size:
+        14px;
+
+}
+
+
+td {
+
+    font-size:
+        14px;
+
+}
+
+
+/* ==========================================================
+   EMPTY MESSAGE
+   ========================================================== */
+
+.empty {
+
+    text-align:
+        center;
+
+    padding:
+        25px;
+
+    color:
+        #6b7280;
+
+}
+
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media
+(max-width: 800px) {
+
+    .cards {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+    }
+
+}
+
+
+@media
+(max-width: 500px) {
+
+    .cards {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+    .last-update {
+
+        float:
+            none;
+
+        display:
+            block;
+
+        margin-top:
+            5px;
+
+    }
+
+    .container {
+
+        padding:
+            12px;
+
+    }
+
+}
+
+</style>
+
 </head>
+
 
 <body>
 
-<div class="container">
 
-    <header>
-        <h1>Acoustic Bone Scanner</h1>
-        <p>Acoustic Resonance Screening System</p>
-    </header>
+<!-- ========================================================
+     HEADER
+     ======================================================== -->
 
-    <section class="status">
-        <span class="dot"></span>
-        System Online
-        <span class="database">Supabase Database Connected</span>
-    </section>
+<div class="header">
 
-    <section class="cards">
+    <div class="header-content">
 
-        <div class="card">
-            <h3>Resonance Frequency</h3>
-            <div class="value">{{ f0 }} Hz</div>
-        </div>
+        <h1>
+            Acoustic Bone Scanner
+        </h1>
 
-        <div class="card">
-            <h3>RMS Response</h3>
-            <div class="value">{{ rms }}</div>
-        </div>
+        <p>
+            Low-Cost Acoustic Resonance Screening Prototype
+        </p>
 
-        <div class="card">
-            <h3>Q Factor</h3>
-            <div class="value">{{ q }}</div>
-        </div>
-
-        <div class="card">
-            <h3>Bandwidth</h3>
-            <div class="value">{{ bandwidth }} Hz</div>
-        </div>
-
-    </section>
-
-    <section class="panel">
-        <h2>Resonance Response</h2>
-        <canvas id="resonanceChart"></canvas>
-    </section>
-
-    <section class="panel">
-        <h2>Reference Database</h2>
-
-        {% if references %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sample ID</th>
-                        <th>f0 (Hz)</th>
-                        <th>RMS</th>
-                        <th>Q Factor</th>
-                        <th>Bandwidth</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {% for ref in references %}
-                    <tr>
-                        <td>{{ ref.sample_id }}</td>
-                        <td>{{ ref.f0 }}</td>
-                        <td>{{ ref.rms }}</td>
-                        <td>{{ ref.q_factor }}</td>
-                        <td>{{ ref.bandwidth }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="empty">
-                No reference measurements recorded yet.
-            </p>
-        {% endif %}
-    </section>
-
-    <footer>
-        Experimental screening/research prototype.
-        Not a clinical osteoporosis diagnostic device.
-    </footer>
+    </div>
 
 </div>
 
+
+<!-- ========================================================
+     MAIN
+     ======================================================== -->
+
+<div class="container">
+
+
+    <!-- ====================================================
+         STATUS
+         ==================================================== -->
+
+    <div class="status-bar">
+
+        <span class="status-dot"></span>
+
+        <span class="status-text">
+            Scanner Database Connected
+        </span>
+
+        <span class="last-update"
+              id="lastUpdate">
+
+            Updating...
+
+        </span>
+
+    </div>
+
+
+    <!-- ====================================================
+         LATEST MEASUREMENT CARDS
+         ==================================================== -->
+
+    <div class="cards">
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Resonance Frequency
+            </div>
+
+            <div class="card-value"
+                 id="f0Value">
+
+                {{ "%.1f"|format(f0) }}
+
+            </div>
+
+            <div class="card-unit">
+                Hz
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                RMS Response
+            </div>
+
+            <div class="card-value"
+                 id="rmsValue">
+
+                {{ "%.4f"|format(rms) }}
+
+            </div>
+
+            <div class="card-unit">
+                ADC units
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Q Factor
+            </div>
+
+            <div class="card-value"
+                 id="qValue">
+
+                {{ "%.2f"|format(q) }}
+
+            </div>
+
+            <div class="card-unit">
+                dimensionless
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Bandwidth
+            </div>
+
+            <div class="card-value"
+                 id="bwValue">
+
+                {{ "%.1f"|format(bandwidth) }}
+
+            </div>
+
+            <div class="card-unit">
+                Hz
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+    <!-- ====================================================
+         UPLOAD STATUS
+         ==================================================== -->
+
+    <div class="upload-card">
+
+        <h2>
+            Latest Upload
+        </h2>
+
+
+        {% if latest_scan %}
+
+        <p class="upload-success">
+
+            ✓ Scan successfully received by the database
+
+        </p>
+
+
+        <p>
+
+            <strong>
+                Scan ID:
+            </strong>
+
+            {{ latest_scan.scan_id }}
+
+        </p>
+
+
+        <p>
+
+            <strong>
+                Uploaded:
+            </strong>
+
+            {{ latest_scan.created_at }}
+
+        </p>
+
+
+        {% else %}
+
+        <p class="upload-empty">
+
+            No ESP32 scan has been uploaded yet.
+
+        </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- ====================================================
+         RESONANCE GRAPH
+         ==================================================== -->
+
+    <div class="graph-card">
+
+        <h2>
+            Resonance Response
+        </h2>
+
+        <canvas id="resonanceChart">
+        </canvas>
+
+    </div>
+
+
+    <!-- ====================================================
+         UPLOADED SCANS TABLE
+         ==================================================== -->
+
+    <div class="table-card">
+
+        <h2>
+            Uploaded Scan Measurements
+        </h2>
+
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Scan ID
+                    </th>
+
+                    <th>
+                        f₀ (Hz)
+                    </th>
+
+                    <th>
+                        RMS
+                    </th>
+
+                    <th>
+                        Q Factor
+                    </th>
+
+                    <th>
+                        Bandwidth (Hz)
+                    </th>
+
+                    <th>
+                        Time
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="scanTableBody">
+
+
+                {% if scans %}
+
+
+                    {% for scan in scans %}
+
+                    <tr>
+
+                        <td>
+                            {{ scan.scan_id }}
+                        </td>
+
+                        <td>
+                            {{ "%.2f"|format(scan.f0 or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.4f"|format(scan.rms or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.3f"|format(scan.q_factor or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.2f"|format(scan.bandwidth or 0) }}
+                        </td>
+
+                        <td>
+                            {{ scan.created_at }}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+
+                {% else %}
+
+
+                    <tr>
+
+                        <td
+                            colspan="6"
+                            class="empty"
+                        >
+
+                            No uploaded scans yet.
+
+                        </td>
+
+                    </tr>
+
+
+                {% endif %}
+
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- ====================================================
+         REFERENCE TABLE
+         ==================================================== -->
+
+    <div class="table-card">
+
+        <h2>
+            Reference Measurements
+        </h2>
+
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Sample ID
+                    </th>
+
+                    <th>
+                        f₀ (Hz)
+                    </th>
+
+                    <th>
+                        RMS
+                    </th>
+
+                    <th>
+                        Q Factor
+                    </th>
+
+                    <th>
+                        Bandwidth (Hz)
+                    </th>
+
+                    <th>
+                        Time
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+
+                {% if references %}
+
+
+                    {% for reference in references %}
+
+                    <tr>
+
+                        <td>
+                            {{ reference.sample_id }}
+                        </td>
+
+                        <td>
+                            {{ "%.2f"|format(reference.f0 or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.4f"|format(reference.rms or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.3f"|format(reference.q_factor or 0) }}
+                        </td>
+
+                        <td>
+                            {{ "%.2f"|format(reference.bandwidth or 0) }}
+                        </td>
+
+                        <td>
+                            {{ reference.created_at }}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+
+                {% else %}
+
+
+                    <tr>
+
+                        <td
+                            colspan="6"
+                            class="empty"
+                        >
+
+                            No reference measurements yet.
+
+                        </td>
+
+                    </tr>
+
+
+                {% endif %}
+
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+</div>
+
+
+<!-- ========================================================
+     JAVASCRIPT
+     ======================================================== -->
+
 <script>
-const points = {{ points | tojson }};
 
-const labels = points.map(p => p.frequency);
-const values = points.map(p => p.rms);
 
-new Chart(document.getElementById("resonanceChart"), {
-    type: "line",
-    data: {
-        labels: labels,
-        datasets: [{
-            label: "RMS Response",
-            data: values,
-            tension: 0.25,
-            fill: false
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: "Frequency (Hz)"
-                }
-            },
-            y: {
-                title: {
-                    display: true,
-                    text: "RMS"
-                }
-            }
-        }
+// ==========================================================
+// RESONANCE GRAPH
+// ==========================================================
+
+const points =
+    {{ points | tojson }};
+
+
+const canvas =
+    document.getElementById(
+        "resonanceChart"
+    );
+
+
+const ctx =
+    canvas.getContext("2d");
+
+
+function drawGraph() {
+
+    const width =
+        canvas.clientWidth;
+
+
+    const height =
+        320;
+
+
+    const devicePixelRatio =
+        window.devicePixelRatio || 1;
+
+
+    canvas.width =
+        width *
+        devicePixelRatio;
+
+
+    canvas.height =
+        height *
+        devicePixelRatio;
+
+
+    ctx.scale(
+        devicePixelRatio,
+        devicePixelRatio
+    );
+
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    if (!points.length) {
+        return;
     }
-});
+
+
+    const padding =
+        45;
+
+
+    const graphWidth =
+        width -
+        padding * 2;
+
+
+    const graphHeight =
+        height -
+        padding * 2;
+
+
+    const minFreq =
+        Math.min(
+            ...points.map(
+                p => p.frequency
+            )
+        );
+
+
+    const maxFreq =
+        Math.max(
+            ...points.map(
+                p => p.frequency
+            )
+        );
+
+
+    const maxRMS =
+        Math.max(
+            ...points.map(
+                p => p.rms
+            )
+        );
+
+
+    const minRMS =
+        0;
+
+
+    // ------------------------------------------------------
+    // Axes
+    // ------------------------------------------------------
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        padding,
+        padding
+    );
+
+    ctx.lineTo(
+        padding,
+        height - padding
+    );
+
+    ctx.lineTo(
+        width - padding,
+        height - padding
+    );
+
+    ctx.stroke();
+
+
+    // ------------------------------------------------------
+    // Curve
+    // ------------------------------------------------------
+
+    ctx.beginPath();
+
+
+    points.forEach(
+        (point, index) => {
+
+            const x =
+                padding +
+                (
+                    (point.frequency - minFreq) /
+                    (maxFreq - minFreq)
+                ) *
+                graphWidth;
+
+
+            const y =
+                height -
+                padding -
+                (
+                    (point.rms - minRMS) /
+                    (maxRMS - minRMS)
+                ) *
+                graphHeight;
+
+
+            if (index === 0) {
+
+                ctx.moveTo(
+                    x,
+                    y
+                );
+
+            }
+
+            else {
+
+                ctx.lineTo(
+                    x,
+                    y
+                );
+
+            }
+
+        }
+    );
+
+
+    ctx.stroke();
+
+
+    // ------------------------------------------------------
+    // Labels
+    // ------------------------------------------------------
+
+    ctx.font =
+        "12px Arial";
+
+
+    ctx.fillText(
+        "Frequency (Hz)",
+        width / 2 - 45,
+        height - 10
+    );
+
+
+    ctx.save();
+
+
+    ctx.translate(
+        14,
+        height / 2
+    );
+
+
+    ctx.rotate(
+        -Math.PI / 2
+    );
+
+
+    ctx.fillText(
+        "RMS response",
+        0,
+        0
+    );
+
+
+    ctx.restore();
+
+}
+
+
+drawGraph();
+
+
+window.addEventListener(
+    "resize",
+    drawGraph
+);
+
+
+// ==========================================================
+// LOAD SCANS AUTOMATICALLY
+// ==========================================================
+
+async function refreshScans() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/scans"
+            );
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        const scans =
+            await response.json();
+
+
+        updateDashboard(
+            scans
+        );
+
+
+    }
+
+    catch (error) {
+
+        console.log(
+            "Refresh error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ==========================================================
+// UPDATE DASHBOARD
+// ==========================================================
+
+function updateDashboard(
+    scans
+) {
+
+    if (!scans.length) {
+
+        document.getElementById(
+            "lastUpdate"
+        ).textContent =
+            "No uploads yet";
+
+        return;
+    }
+
+
+    const latest =
+        scans[0];
+
+
+    // ------------------------------------------------------
+    // Latest values
+    // ------------------------------------------------------
+
+    document.getElementById(
+        "f0Value"
+    ).textContent =
+        Number(
+            latest.f0 || 0
+        ).toFixed(1);
+
+
+    document.getElementById(
+        "rmsValue"
+    ).textContent =
+        Number(
+            latest.rms || 0
+        ).toFixed(4);
+
+
+    document.getElementById(
+        "qValue"
+    ).textContent =
+        Number(
+            latest.q_factor || 0
+        ).toFixed(2);
+
+
+    document.getElementById(
+        "bwValue"
+    ).textContent =
+        Number(
+            latest.bandwidth || 0
+        ).toFixed(1);
+
+
+    // ------------------------------------------------------
+    // Last update
+    // ------------------------------------------------------
+
+    document.getElementById(
+        "lastUpdate"
+    ).textContent =
+        "Latest scan: " +
+        latest.scan_id;
+
+
+    // ------------------------------------------------------
+    // Table
+    // ------------------------------------------------------
+
+    const tableBody =
+        document.getElementById(
+            "scanTableBody"
+        );
+
+
+    tableBody.innerHTML =
+        "";
+
+
+    scans.forEach(
+        scan => {
+
+            const row =
+                document.createElement(
+                    "tr"
+                );
+
+
+            row.innerHTML = `
+
+                <td>
+                    ${escapeHTML(
+                        scan.scan_id || ""
+                    )}
+                </td>
+
+                <td>
+                    ${Number(
+                        scan.f0 || 0
+                    ).toFixed(2)}
+                </td>
+
+                <td>
+                    ${Number(
+                        scan.rms || 0
+                    ).toFixed(4)}
+                </td>
+
+                <td>
+                    ${Number(
+                        scan.q_factor || 0
+                    ).toFixed(3)}
+                </td>
+
+                <td>
+                    ${Number(
+                        scan.bandwidth || 0
+                    ).toFixed(2)}
+                </td>
+
+                <td>
+                    ${escapeHTML(
+                        scan.created_at || ""
+                    )}
+                </td>
+
+            `;
+
+
+            tableBody.appendChild(
+                row
+            );
+
+        }
+    );
+
+}
+
+
+// ==========================================================
+// SIMPLE HTML ESCAPE
+// ==========================================================
+
+function escapeHTML(
+    value
+) {
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+// ==========================================================
+// REFRESH EVERY 5 SECONDS
+// ==========================================================
+
+setInterval(
+    refreshScans,
+    5000
+);
+
+
 </script>
 
+
 </body>
+
 </html>
