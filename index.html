@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Acoustic Bone Scanner</title>
 
     <link rel="stylesheet" href="style.css">
@@ -12,75 +14,196 @@
 
 <body>
 
-<!-- LOGIN -->
+<!-- ================= LOGIN ================= -->
+
 <div id="loginScreen" class="login-container">
+
     <div class="login-card">
+
         <h1>Acoustic Bone Scanner</h1>
+
         <p>Secure Research Dashboard</p>
 
-        <input id="email" type="email" placeholder="Email">
-        <input id="password" type="password" placeholder="Password">
+        <div id="loginForm">
 
-        <button onclick="login()">Login</button>
+            <input
+                id="email"
+                type="email"
+                placeholder="Email"
+            >
 
-        <p id="loginMessage"></p>
+            <input
+                id="password"
+                type="password"
+                placeholder="Password"
+            >
+
+            <button onclick="login()">
+                Login
+            </button>
+
+            <p id="loginMessage"></p>
+
+            <div class="auth-divider">
+                Don't have an account?
+            </div>
+
+            <button
+                class="secondary-btn"
+                onclick="showRegister()"
+            >
+                Create Account
+            </button>
+
+        </div>
+
     </div>
+
 </div>
 
 
-<!-- DASHBOARD -->
+<!-- ================= REGISTER ================= -->
+
+<div
+    id="registerScreen"
+    class="login-container"
+    style="display:none;"
+>
+
+    <div class="login-card">
+
+        <h1>Create Account</h1>
+
+        <p>Acoustic Bone Scanner</p>
+
+        <input
+            id="registerName"
+            type="text"
+            placeholder="Full Name"
+        >
+
+        <input
+            id="registerEmail"
+            type="email"
+            placeholder="Email"
+        >
+
+        <input
+            id="registerPassword"
+            type="password"
+            placeholder="Password"
+        >
+
+        <button onclick="registerUser()">
+            Create Account
+        </button>
+
+        <p id="registerMessage"></p>
+
+        <div class="auth-divider">
+            Already have an account?
+        </div>
+
+        <button
+            class="secondary-btn"
+            onclick="showLogin()"
+        >
+            Back to Login
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= DASHBOARD ================= -->
+
 <div id="dashboard" style="display:none;">
 
     <header class="topbar">
+
         <div>
+
             <h1>Acoustic Bone Scanner</h1>
+
             <p id="userInfo"></p>
+
         </div>
 
-        <button class="logout-btn" onclick="logout()">Logout</button>
+        <button
+            class="logout-btn"
+            onclick="logout()"
+        >
+            Logout
+        </button>
+
     </header>
 
 
     <main class="container">
 
+
         <!-- SUMMARY -->
+
         <section class="summary-grid">
 
             <div class="summary-card">
+
                 <h3>My Subjects</h3>
-                <strong id="subjectCount">0</strong>
+
+                <strong id="subjectCount">
+                    0
+                </strong>
+
             </div>
 
+
             <div class="summary-card">
+
                 <h3>My Scans</h3>
-                <strong id="scanCount">0</strong>
+
+                <strong id="scanCount">
+                    0
+                </strong>
+
             </div>
 
+
             <div class="summary-card">
+
                 <h3>Reference Groups</h3>
-                <strong id="referenceCount">0</strong>
+
+                <strong id="referenceCount">
+                    0
+                </strong>
+
             </div>
 
         </section>
 
 
-        <!-- USER SECTION -->
+        <!-- SUBJECTS -->
+
         <section class="panel">
 
             <div class="panel-header">
+
                 <h2>My Subjects</h2>
 
                 <button onclick="openSubjectModal()">
                     + Add Subject
                 </button>
+
             </div>
 
             <div id="subjectsMessage"></div>
 
             <div class="table-container">
+
                 <table>
 
                     <thead>
+
                         <tr>
                             <th>Subject ID</th>
                             <th>Name</th>
@@ -88,22 +211,26 @@
                             <th>Gender</th>
                             <th>Created</th>
                         </tr>
+
                     </thead>
 
-                    <tbody id="subjectsTable">
-                    </tbody>
+                    <tbody id="subjectsTable"></tbody>
 
                 </table>
+
             </div>
 
         </section>
 
 
         <!-- SCANS -->
+
         <section class="panel">
 
             <div class="panel-header">
+
                 <h2>My Scan History</h2>
+
             </div>
 
             <div class="table-container">
@@ -111,6 +238,7 @@
                 <table>
 
                     <thead>
+
                         <tr>
                             <th>Scan ID</th>
                             <th>Subject ID</th>
@@ -121,10 +249,10 @@
                             <th>Status</th>
                             <th>Date</th>
                         </tr>
+
                     </thead>
 
-                    <tbody id="scansTable">
-                    </tbody>
+                    <tbody id="scansTable"></tbody>
 
                 </table>
 
@@ -134,10 +262,13 @@
 
 
         <!-- REFERENCE DATABASE -->
+
         <section class="panel">
 
             <div class="panel-header">
+
                 <h2>Reference Database</h2>
+
             </div>
 
             <div id="referenceMessage"></div>
@@ -147,6 +278,7 @@
                 <table>
 
                     <thead>
+
                         <tr>
                             <th>Age Range</th>
                             <th>Gender</th>
@@ -156,10 +288,10 @@
                             <th>Mean Q</th>
                             <th>Mean Bandwidth</th>
                         </tr>
+
                     </thead>
 
-                    <tbody id="referenceTable">
-                    </tbody>
+                    <tbody id="referenceTable"></tbody>
 
                 </table>
 
@@ -168,18 +300,29 @@
         </section>
 
 
-        <!-- ADMIN -->
-        <section id="adminPanel" class="panel admin-panel">
+        <!-- ================= ADMIN ================= -->
+
+        <section
+            id="adminPanel"
+            class="panel admin-panel"
+            style="display:none;"
+        >
 
             <div class="panel-header">
+
                 <div>
+
                     <h2>Admin Panel</h2>
+
                     <p>Administrator access</p>
+
                 </div>
+
             </div>
 
 
             <!-- USERS -->
+
             <div class="admin-section">
 
                 <h3>Registered Users</h3>
@@ -189,16 +332,17 @@
                     <table>
 
                         <thead>
+
                             <tr>
                                 <th>Email</th>
                                 <th>Name</th>
                                 <th>Role</th>
                                 <th>User ID</th>
                             </tr>
+
                         </thead>
 
-                        <tbody id="usersTable">
-                        </tbody>
+                        <tbody id="usersTable"></tbody>
 
                     </table>
 
@@ -208,6 +352,7 @@
 
 
             <!-- ALL SUBJECTS -->
+
             <div class="admin-section">
 
                 <h3>All Subjects</h3>
@@ -217,6 +362,7 @@
                     <table>
 
                         <thead>
+
                             <tr>
                                 <th>Subject ID</th>
                                 <th>Name</th>
@@ -224,10 +370,10 @@
                                 <th>Gender</th>
                                 <th>User ID</th>
                             </tr>
+
                         </thead>
 
-                        <tbody id="allSubjectsTable">
-                        </tbody>
+                        <tbody id="allSubjectsTable"></tbody>
 
                     </table>
 
@@ -237,6 +383,7 @@
 
 
             <!-- ALL SCANS -->
+
             <div class="admin-section">
 
                 <h3>All Scan Measurements</h3>
@@ -246,6 +393,7 @@
                     <table>
 
                         <thead>
+
                             <tr>
                                 <th>Scan ID</th>
                                 <th>Subject ID</th>
@@ -256,10 +404,10 @@
                                 <th>Status</th>
                                 <th>Date</th>
                             </tr>
+
                         </thead>
 
-                        <tbody id="allScansTable">
-                        </tbody>
+                        <tbody id="allScansTable"></tbody>
 
                     </table>
 
@@ -268,15 +416,18 @@
             </div>
 
 
-            <!-- ADMIN REFERENCE -->
+            <!-- REFERENCE MEASUREMENTS -->
+
             <div class="admin-section">
 
                 <div class="panel-header">
+
                     <h3>Manage Reference Measurements</h3>
 
                     <button onclick="openReferenceModal()">
                         + Add Reference
                     </button>
+
                 </div>
 
                 <div class="table-container">
@@ -284,6 +435,7 @@
                     <table>
 
                         <thead>
+
                             <tr>
                                 <th>Reference ID</th>
                                 <th>Age</th>
@@ -295,10 +447,10 @@
                                 <th>Bandwidth</th>
                                 <th>Action</th>
                             </tr>
+
                         </thead>
 
-                        <tbody id="adminReferenceTable">
-                        </tbody>
+                        <tbody id="adminReferenceTable"></tbody>
 
                     </table>
 
@@ -313,17 +465,30 @@
 </div>
 
 
-<!-- ADD SUBJECT MODAL -->
+<!-- ================= SUBJECT MODAL ================= -->
+
 <div id="subjectModal" class="modal">
 
     <div class="modal-content">
 
-        <span class="close" onclick="closeSubjectModal()">&times;</span>
+        <span
+            class="close"
+            onclick="closeSubjectModal()"
+        >
+            &times;
+        </span>
 
         <h2>Add Subject</h2>
 
-        <input id="subjectId" placeholder="Subject ID">
-        <input id="subjectName" placeholder="Name">
+        <input
+            id="subjectId"
+            placeholder="Subject ID"
+        >
+
+        <input
+            id="subjectName"
+            placeholder="Name"
+        >
 
         <input
             id="subjectAge"
@@ -335,14 +500,27 @@
 
         <select id="subjectGender">
 
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            <option value="">
+                Select Gender
+            </option>
+
+            <option value="Male">
+                Male
+            </option>
+
+            <option value="Female">
+                Female
+            </option>
+
+            <option value="Other">
+                Other
+            </option>
 
         </select>
 
-        <button onclick="addSubject()">Save Subject</button>
+        <button onclick="addSubject()">
+            Save Subject
+        </button>
 
         <p id="subjectMessage"></p>
 
@@ -351,12 +529,18 @@
 </div>
 
 
-<!-- ADD REFERENCE MODAL -->
+<!-- ================= REFERENCE MODAL ================= -->
+
 <div id="referenceModal" class="modal">
 
     <div class="modal-content">
 
-        <span class="close" onclick="closeReferenceModal()">&times;</span>
+        <span
+            class="close"
+            onclick="closeReferenceModal()"
+        >
+            &times;
+        </span>
 
         <h2>Add Reference Measurement</h2>
 
@@ -368,27 +552,71 @@
 
         <select id="referenceGender">
 
-            <option value="">Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            <option value="">
+                Gender
+            </option>
+
+            <option value="Male">
+                Male
+            </option>
+
+            <option value="Female">
+                Female
+            </option>
+
+            <option value="Other">
+                Other
+            </option>
 
         </select>
 
         <select id="referenceSide">
 
-            <option value="">Measurement Side</option>
-            <option value="Left">Left</option>
-            <option value="Right">Right</option>
+            <option value="">
+                Measurement Side
+            </option>
+
+            <option value="Left">
+                Left
+            </option>
+
+            <option value="Right">
+                Right
+            </option>
 
         </select>
 
-        <input id="referenceF0" type="number" step="0.01" placeholder="f0 (Hz)">
-        <input id="referenceRMS" type="number" step="0.01" placeholder="RMS">
-        <input id="referenceQ" type="number" step="0.01" placeholder="Q Factor">
-        <input id="referenceBandwidth" type="number" step="0.01" placeholder="Bandwidth">
+        <input
+            id="referenceF0"
+            type="number"
+            step="0.01"
+            placeholder="f0 (Hz)"
+        >
 
-        <button onclick="addReference()">Save Reference</button>
+        <input
+            id="referenceRMS"
+            type="number"
+            step="0.01"
+            placeholder="RMS"
+        >
+
+        <input
+            id="referenceQ"
+            type="number"
+            step="0.01"
+            placeholder="Q Factor"
+        >
+
+        <input
+            id="referenceBandwidth"
+            type="number"
+            step="0.01"
+            placeholder="Bandwidth"
+        >
+
+        <button onclick="addReference()">
+            Save Reference
+        </button>
 
         <p id="referenceAddMessage"></p>
 
@@ -397,7 +625,7 @@
 </div>
 
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 
 </body>
 </html>
