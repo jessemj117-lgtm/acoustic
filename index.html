@@ -1,1 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Acoustic Bone Scanner</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+<div class="login-container" id="loginScreen">
+
+    <div class="login-card">
+
+        <h1>Acoustic Bone Scanner</h1>
+
+        <p class="subtitle">
+            Experimental Acoustic Resonance Measurement System
+        </p>
+
+        <h2>Login</h2>
+
+        <form id="loginForm">
+
+            <label>Email</label>
+            <input
+                type="email"
+                id="email"
+                required
+                placeholder="Enter your email"
+            >
+
+            <label>Password</label>
+            <input
+                type="password"
+                id="password"
+                required
+                placeholder="Enter your password"
+            >
+
+            <button type="submit">
+                Login
+            </button>
+
+        </form>
+
+        <p id="loginMessage"></p>
+
+    </div>
+
+</div>
+
+
+<div class="dashboard" id="dashboard" style="display:none;">
+
+    <header>
+
+        <div>
+            <h1>Acoustic Bone Scanner</h1>
+            <p id="userInfo"></p>
+        </div>
+
+        <button id="logoutButton">
+            Logout
+        </button>
+
+    </header>
+
+
+    <main>
+
+        <section class="welcome-card">
+
+            <h2>Dashboard</h2>
+
+            <p>
+                Welcome to the Acoustic Bone Scanner system.
+            </p>
+
+        </section>
+
+
+        <section class="cards">
+
+            <div class="card">
+                <h3>My Subjects</h3>
+                <p id="subjectCount">0</p>
+            </div>
+
+            <div class="card">
+                <h3>My Scans</h3>
+                <p id="scanCount">0</p>
+            </div>
+
+            <div class="card">
+                <h3>Reference Groups</h3>
+                <p id="referenceCount">0</p>
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>My Subjects</h2>
+
+            <button id="addSubjectButton">
+                + Add Subject
+            </button>
+
+            <div id="subjectList">
+                Loading...
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>My Scan History</h2>
+
+            <div id="scanList">
+                Loading...
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Reference Database</h2>
+
+            <p>
+                Experimental reference data used for comparison.
+            </p>
+
+            <div id="referenceList">
+                Loading...
+            </div>
+
+        </section>
+
+
+        <section
+            class="panel admin-panel"
+            id="adminPanel"
+            style="display:none;"
+        >
+
+            <h2>Admin Panel</h2>
+
+            <div class="admin-buttons">
+
+                <button>
+                    Manage Users
+                </button>
+
+                <button>
+                    Manage Subjects
+                </button>
+
+                <button>
+                    Manage Scans
+                </button>
+
+                <button>
+                    Manage Reference Data
+                </button>
+
+            </div>
+
+            <p>
+                Admin functions will be connected in the next step.
+            </p>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- Add Subject Modal -->
+
+<div class="modal" id="subjectModal">
+
+    <div class="modal-content">
+
+        <h2>Add Subject</h2>
+
+        <form id="subjectForm">
+
+            <label>Subject ID</label>
+
+            <input
+                type="text"
+                id="subjectId"
+                placeholder="SUB001"
+                required
+            >
+
+
+            <label>Name</label>
+
+            <input
+                type="text"
+                id="subjectName"
+                placeholder="Subject name"
+                required
+            >
+
+
+            <label>Age</label>
+
+            <input
+                type="number"
+                id="subjectAge"
+                min="1"
+                max="120"
+                required
+            >
+
+
+            <label>Gender</label>
+
+            <select id="subjectGender" required>
+
+                <option value="">
+                    Select gender
+                </option>
+
+                <option value="Male">
+                    Male
+                </option>
+
+                <option value="Female">
+                    Female
+                </option>
+
+                <option value="Other">
+                    Other
+                </option>
+
+                <option value="Prefer not to say">
+                    Prefer not to say
+                </option>
+
+            </select>
+
+
+            <div class="modal-buttons">
+
+                <button type="submit">
+                    Save Subject
+                </button>
+
+                <button
+                    type="button"
+                    id="closeModal"
+                >
+                    Cancel
+                </button>
+
+            </div>
+
+        </form>
+
+        <p id="subjectMessage"></p>
+
+    </div>
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
