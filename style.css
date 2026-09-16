@@ -1,34 +1,22 @@
-/* =========================================================
-   ACOUSTIC BONE SCANNER
-   RESPONSIVE DASHBOARD STYLE
-========================================================= */
-
 * {
     box-sizing: border-box;
 }
 
-html {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-}
-
+html,
 body {
     margin: 0;
     padding: 0;
     width: 100%;
-    min-height: 100vh;
-
+    min-height: 100%;
     font-family: Arial, Helvetica, sans-serif;
-
     background: #f4f7fb;
     color: #1f2937;
 }
 
 
-/* =========================================================
-   LOGIN / REGISTER
-========================================================= */
+/* =====================================================
+   LOGIN / REGISTER PAGE
+===================================================== */
 
 #loginScreen,
 #registerScreen {
@@ -46,25 +34,29 @@ body {
     width: 100%;
     max-width: 420px;
 
-    background: white;
+    background: #ffffff;
 
     padding: 35px;
 
-    border-radius: 14px;
+    border-radius: 16px;
 
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    box-shadow:
+        0 10px 35px rgba(0, 0, 0, 0.10);
 
     text-align: center;
 }
 
 .auth-box h1 {
-    margin-top: 0;
-    margin-bottom: 8px;
+    margin: 0 0 10px;
 
     font-size: 28px;
+
+    color: #172b4d;
 }
 
 .auth-box p {
+    margin: 8px 0;
+
     color: #6b7280;
 }
 
@@ -72,47 +64,65 @@ body {
 .auth-box select {
     width: 100%;
 
-    padding: 13px 14px;
+    height: 46px;
 
     margin-top: 12px;
 
+    padding: 0 14px;
+
     border: 1px solid #d1d5db;
+
     border-radius: 8px;
 
     font-size: 15px;
+
+    outline: none;
+}
+
+.auth-box input:focus,
+.auth-box select:focus {
+    border-color: #2563eb;
 }
 
 .auth-box button {
     width: 100%;
 
-    padding: 13px;
+    height: 46px;
 
     margin-top: 14px;
 
     border: none;
+
     border-radius: 8px;
 
     background: #2563eb;
+
     color: white;
 
     font-size: 15px;
+
+    font-weight: 600;
 
     cursor: pointer;
 }
 
 .auth-box button:hover {
-    opacity: 0.9;
+    background: #1d4ed8;
 }
 
 #loginMessage,
 #registerMessage {
+    min-height: 20px;
+
     margin-top: 15px;
+
+    font-size: 14px;
 }
 
 
-/* =========================================================
+/* =====================================================
    DASHBOARD
-========================================================= */
+===================================================== */
 
 #dashboard {
     width: 100%;
@@ -120,9 +130,9 @@ body {
 }
 
 
-/* =========================================================
+/* =====================================================
    TOP BAR
-========================================================= */
+===================================================== */
 
 .topbar {
     width: 100%;
@@ -136,6 +146,7 @@ body {
     display: flex;
 
     align-items: center;
+
     justify-content: space-between;
 
     gap: 20px;
@@ -161,14 +172,6 @@ body {
     align-items: center;
 
     gap: 12px;
-
-    white-space: nowrap;
-}
-
-.user-area span {
-    font-size: 14px;
-
-    color: #374151;
 }
 
 .user-area button {
@@ -178,7 +181,7 @@ body {
 
     color: white;
 
-    padding: 9px 15px;
+    padding: 10px 16px;
 
     border-radius: 7px;
 
@@ -186,9 +189,9 @@ body {
 }
 
 
-/* =========================================================
+/* =====================================================
    MAIN CONTAINER
-========================================================= */
+===================================================== */
 
 .container {
     width: 100%;
@@ -201,15 +204,15 @@ body {
 }
 
 
-/* =========================================================
+/* =====================================================
    SUMMARY CARDS
-========================================================= */
+===================================================== */
 
 .cards {
     display: grid;
 
     grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+        repeat(3, 1fr);
 
     gap: 20px;
 
@@ -219,33 +222,31 @@ body {
 .card {
     background: white;
 
+    border: 1px solid #e5e7eb;
+
     border-radius: 12px;
 
     padding: 22px;
-
-    border: 1px solid #e5e7eb;
 }
 
 .card h3 {
     margin: 0 0 10px;
 
-    font-size: 15px;
-
     color: #6b7280;
+
+    font-size: 15px;
 }
 
 .card div {
     font-size: 30px;
 
     font-weight: bold;
-
-    color: #111827;
 }
 
 
-/* =========================================================
+/* =====================================================
    SECTIONS
-========================================================= */
+===================================================== */
 
 .section {
     background: white;
@@ -287,8 +288,6 @@ body {
 }
 
 .section-header button {
-    flex-shrink: 0;
-
     border: none;
 
     background: #2563eb;
@@ -303,11 +302,13 @@ body {
 }
 
 
-/* =========================================================
+/* =====================================================
    SUBJECT CARDS
-========================================================= */
+===================================================== */
 
 .data-card {
+    background: #fafafa;
+
     border: 1px solid #e5e7eb;
 
     border-radius: 10px;
@@ -315,8 +316,6 @@ body {
     padding: 18px;
 
     margin-bottom: 12px;
-
-    background: #fafafa;
 }
 
 .data-card strong {
@@ -327,14 +326,23 @@ body {
     margin: 7px 0 0;
 
     color: #4b5563;
-
-    font-size: 14px;
 }
 
 
-/* =========================================================
+/* =====================================================
    TABLES
-========================================================= */
+===================================================== */
+
+#scansList,
+#referenceList,
+#adminUsers,
+#adminSubjects,
+#adminScans,
+#adminReferences {
+    width: 100%;
+
+    overflow-x: auto;
+}
 
 table {
     width: 100%;
@@ -361,37 +369,17 @@ td {
 
 th {
     font-weight: 600;
-
-    color: #374151;
-}
-
-td {
-    color: #4b5563;
 }
 
 
-/* Allow tables to scroll instead of breaking page */
-
-#scansList,
-#referenceList,
-#adminUsers,
-#adminSubjects,
-#adminScans,
-#adminReferences {
-    width: 100%;
-
-    overflow-x: auto;
-}
-
-
-/* =========================================================
+/* =====================================================
    ADMIN
-========================================================= */
+===================================================== */
 
 .admin-section {
-    border: 2px solid #dbeafe;
-
     background: #f8fbff;
+
+    border: 2px solid #dbeafe;
 }
 
 .admin-block {
@@ -408,14 +396,12 @@ td {
 
 .admin-block h3 {
     margin-top: 0;
-
-    margin-bottom: 15px;
 }
 
 
-/* =========================================================
+/* =====================================================
    MODALS
-========================================================= */
+===================================================== */
 
 .modal {
     position: fixed;
@@ -430,6 +416,7 @@ td {
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
     padding: 20px;
@@ -451,12 +438,6 @@ td {
     padding: 28px;
 
     border-radius: 12px;
-
-    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
-}
-
-.modal-content h2 {
-    margin-top: 0;
 }
 
 .modal-content input,
@@ -470,8 +451,6 @@ td {
     border: 1px solid #d1d5db;
 
     border-radius: 7px;
-
-    font-size: 14px;
 }
 
 .modal-buttons {
@@ -503,9 +482,9 @@ td {
 }
 
 
-/* =========================================================
+/* =====================================================
    ERROR
-========================================================= */
+===================================================== */
 
 .error {
     color: #dc2626;
@@ -518,58 +497,49 @@ td {
 }
 
 
-/* =========================================================
-   MOBILE
-========================================================= */
+/* =====================================================
+   TABLET
+===================================================== */
 
 @media (max-width: 800px) {
+
+    .cards {
+        grid-template-columns: 1fr;
+    }
 
     .topbar {
         flex-direction: column;
 
         align-items: flex-start;
-
-        padding: 18px;
     }
 
     .user-area {
         width: 100%;
 
         justify-content: space-between;
-
-        white-space: normal;
     }
 
     .container {
         padding: 18px;
     }
 
-    .cards {
-        grid-template-columns: 1fr;
-    }
-
     .section {
         padding: 18px;
-    }
-
-    .section-header {
-        flex-direction: column;
-
-        align-items: flex-start;
-    }
-
-    .section-header button {
-        width: 100%;
     }
 
 }
 
 
-/* =========================================================
-   SMALL MOBILE
-========================================================= */
+/* =====================================================
+   MOBILE
+===================================================== */
 
 @media (max-width: 480px) {
+
+    #loginScreen,
+    #registerScreen {
+        padding: 15px;
+    }
 
     .auth-box {
         padding: 25px 20px;
@@ -577,10 +547,6 @@ td {
 
     .auth-box h1 {
         font-size: 23px;
-    }
-
-    .topbar h1 {
-        font-size: 21px;
     }
 
     .container {
@@ -599,13 +565,6 @@ td {
 
     .user-area button {
         width: 100%;
-    }
-
-    th,
-    td {
-        padding: 9px 10px;
-
-        font-size: 13px;
     }
 
 }
