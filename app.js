@@ -1004,3 +1004,8 @@ db.auth.onAuthStateChange(
 
     }
 );
+window.showRegister = showRegister;
+window.showLogin = showLogin;
+window.login = login;
+window.registerUser = registerUser;
+window.logout = logout;
