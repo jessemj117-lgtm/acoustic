@@ -1,3 +1,7 @@
+// ============================================================
+// SUPABASE CONFIGURATION
+// ============================================================
+
 const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
 const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
@@ -55,11 +59,13 @@ loginForm.addEventListener("submit", async function(event) {
     const password =
         document.getElementById("password").value;
 
-    const { data, error } =
-        await supabaseClient.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
+    const {
+        data,
+        error
+    } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+    });
 
     if (error) {
 
@@ -85,6 +91,8 @@ logoutButton.addEventListener("click", async function() {
 
     dashboard.style.display = "none";
     loginScreen.style.display = "flex";
+
+    userInfo.textContent = "";
 
 });
 
@@ -145,11 +153,25 @@ async function loadDashboard() {
             adminPanel.style.display = "none";
 
         }
+
+    } else {
+
+        console.error(
+            "Profile loading error:",
+            profileError
+        );
+
     }
 
 
+    // --------------------------------------------------------
+    // LOAD DASHBOARD DATA
+    // --------------------------------------------------------
+
     await loadSubjects();
+
     await loadScans();
+
     await loadReferences();
 }
 
@@ -160,31 +182,95 @@ async function loadDashboard() {
 
 async function loadSubjects() {
 
+    subjectList.innerHTML =
+        "<p>Loading subjects...</p>";
+
+
+    // --------------------------------------------------------
+    // CHECK LOGIN
+    // --------------------------------------------------------
+
     const {
-        data,
-        error
-    } = await supabaseClient
-        .from("subjects")
-        .select("*")
-        .order("created_at", {
-            ascending: false
-        });
+        data: {
+            user
+        }
+    } = await supabaseClient.auth.getUser();
 
 
-    if (error) {
+    if (!user) {
 
         subjectList.innerHTML =
-            "<p>Error loading subjects.</p>";
-
-        console.error(error);
+            "<p>You are not logged in.</p>";
 
         return;
     }
 
 
+    // --------------------------------------------------------
+    // GET SUBJECTS
+    // --------------------------------------------------------
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("subjects")
+        .select(
+            "id, user_id, subject_id, name, age, gender, created_at"
+        )
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    // --------------------------------------------------------
+    // ERROR
+    // --------------------------------------------------------
+
+    if (error) {
+
+        subjectList.innerHTML = `
+            <div class="error-box">
+
+                <strong>Error loading subjects</strong>
+
+                <br><br>
+
+                ${escapeHtml(error.message)}
+
+                <br>
+
+                Code:
+                ${escapeHtml(error.code ?? "N/A")}
+
+                <br>
+
+                Details:
+                ${escapeHtml(error.details ?? "N/A")}
+
+            </div>
+        `;
+
+        console.error(
+            "Subjects error:",
+            error
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------------
+    // UPDATE COUNT
+    // --------------------------------------------------------
+
     subjectCount.textContent =
         data.length;
 
+
+    // --------------------------------------------------------
+    // NO SUBJECTS
+    // --------------------------------------------------------
 
     if (data.length === 0) {
 
@@ -195,8 +281,13 @@ async function loadSubjects() {
     }
 
 
+    // --------------------------------------------------------
+    // CREATE TABLE
+    // --------------------------------------------------------
+
     let html = `
         <table>
+
             <tr>
                 <th>Subject ID</th>
                 <th>Name</th>
@@ -210,19 +301,36 @@ async function loadSubjects() {
 
         html += `
             <tr>
-                <td>${escapeHtml(subject.subject_id)}</td>
-                <td>${escapeHtml(subject.name)}</td>
-                <td>${subject.age}</td>
-                <td>${escapeHtml(subject.gender)}</td>
+
+                <td>
+                    ${escapeHtml(subject.subject_id)}
+                </td>
+
+                <td>
+                    ${escapeHtml(subject.name)}
+                </td>
+
+                <td>
+                    ${subject.age ?? "-"}
+                </td>
+
+                <td>
+                    ${escapeHtml(subject.gender)}
+                </td>
+
             </tr>
         `;
 
     });
 
 
-    html += "</table>";
+    html += `
+        </table>
+    `;
 
-    subjectList.innerHTML = html;
+
+    subjectList.innerHTML =
+        html;
 }
 
 
@@ -231,6 +339,10 @@ async function loadSubjects() {
 // ============================================================
 
 async function loadScans() {
+
+    scanList.innerHTML =
+        "<p>Loading scans...</p>";
+
 
     const {
         data,
@@ -243,20 +355,54 @@ async function loadScans() {
         });
 
 
+    // --------------------------------------------------------
+    // ERROR
+    // --------------------------------------------------------
+
     if (error) {
 
-        scanList.innerHTML =
-            "<p>Error loading scans.</p>";
+        scanList.innerHTML = `
+            <div class="error-box">
 
-        console.error(error);
+                <strong>Error loading scans</strong>
+
+                <br><br>
+
+                ${escapeHtml(error.message)}
+
+                <br>
+
+                Code:
+                ${escapeHtml(error.code ?? "N/A")}
+
+                <br>
+
+                Details:
+                ${escapeHtml(error.details ?? "N/A")}
+
+            </div>
+        `;
+
+        console.error(
+            "Scans error:",
+            error
+        );
 
         return;
     }
 
 
+    // --------------------------------------------------------
+    // UPDATE COUNT
+    // --------------------------------------------------------
+
     scanCount.textContent =
         data.length;
 
+
+    // --------------------------------------------------------
+    // NO SCANS
+    // --------------------------------------------------------
 
     if (data.length === 0) {
 
@@ -267,8 +413,13 @@ async function loadScans() {
     }
 
 
+    // --------------------------------------------------------
+    // CREATE TABLE
+    // --------------------------------------------------------
+
     let html = `
         <table>
+
             <tr>
                 <th>Scan ID</th>
                 <th>F₀</th>
@@ -285,22 +436,50 @@ async function loadScans() {
 
         html += `
             <tr>
-                <td>${escapeHtml(scan.scan_id)}</td>
-                <td>${scan.f0 ?? "-"}</td>
-                <td>${scan.rms ?? "-"}</td>
-                <td>${scan.q_factor ?? "-"}</td>
-                <td>${scan.bandwidth ?? "-"}</td>
-                <td>${escapeHtml(scan.comparison_status ?? "-")}</td>
-                <td>${formatDate(scan.created_at)}</td>
+
+                <td>
+                    ${escapeHtml(scan.scan_id)}
+                </td>
+
+                <td>
+                    ${scan.f0 ?? "-"}
+                </td>
+
+                <td>
+                    ${scan.rms ?? "-"}
+                </td>
+
+                <td>
+                    ${scan.q_factor ?? "-"}
+                </td>
+
+                <td>
+                    ${scan.bandwidth ?? "-"}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        scan.comparison_status ?? "-"
+                    )}
+                </td>
+
+                <td>
+                    ${formatDate(scan.created_at)}
+                </td>
+
             </tr>
         `;
 
     });
 
 
-    html += "</table>";
+    html += `
+        </table>
+    `;
 
-    scanList.innerHTML = html;
+
+    scanList.innerHTML =
+        html;
 }
 
 
@@ -309,6 +488,10 @@ async function loadScans() {
 // ============================================================
 
 async function loadReferences() {
+
+    referenceList.innerHTML =
+        "<p>Loading reference data...</p>";
+
 
     const {
         data,
@@ -321,20 +504,54 @@ async function loadReferences() {
         });
 
 
+    // --------------------------------------------------------
+    // ERROR
+    // --------------------------------------------------------
+
     if (error) {
 
-        referenceList.innerHTML =
-            "<p>Error loading reference data.</p>";
+        referenceList.innerHTML = `
+            <div class="error-box">
 
-        console.error(error);
+                <strong>Error loading reference data</strong>
+
+                <br><br>
+
+                ${escapeHtml(error.message)}
+
+                <br>
+
+                Code:
+                ${escapeHtml(error.code ?? "N/A")}
+
+                <br>
+
+                Details:
+                ${escapeHtml(error.details ?? "N/A")}
+
+            </div>
+        `;
+
+        console.error(
+            "Reference error:",
+            error
+        );
 
         return;
     }
 
 
+    // --------------------------------------------------------
+    // UPDATE COUNT
+    // --------------------------------------------------------
+
     referenceCount.textContent =
         data.length;
 
+
+    // --------------------------------------------------------
+    // NO REFERENCE GROUPS
+    // --------------------------------------------------------
 
     if (data.length === 0) {
 
@@ -345,8 +562,13 @@ async function loadReferences() {
     }
 
 
+    // --------------------------------------------------------
+    // CREATE TABLE
+    // --------------------------------------------------------
+
     let html = `
         <table>
+
             <tr>
                 <th>Age Group</th>
                 <th>Gender</th>
@@ -362,130 +584,228 @@ async function loadReferences() {
 
         html += `
             <tr>
-                <td>${ref.age_min}–${ref.age_max}</td>
-                <td>${escapeHtml(ref.gender)}</td>
-                <td>${ref.sample_count ?? 0}</td>
-                <td>${ref.mean_f0 ?? "-"}</td>
-                <td>${ref.mean_rms ?? "-"}</td>
-                <td>${ref.mean_q_factor ?? "-"}</td>
+
+                <td>
+                    ${ref.age_min}–${ref.age_max}
+                </td>
+
+                <td>
+                    ${escapeHtml(ref.gender)}
+                </td>
+
+                <td>
+                    ${ref.sample_count ?? 0}
+                </td>
+
+                <td>
+                    ${ref.mean_f0 ?? "-"}
+                </td>
+
+                <td>
+                    ${ref.mean_rms ?? "-"}
+                </td>
+
+                <td>
+                    ${ref.mean_q_factor ?? "-"}
+                </td>
+
             </tr>
         `;
 
     });
 
 
-    html += "</table>";
+    html += `
+        </table>
+    `;
 
-    referenceList.innerHTML = html;
+
+    referenceList.innerHTML =
+        html;
 }
 
 
 // ============================================================
-// ADD SUBJECT
+// ADD SUBJECT — OPEN MODAL
 // ============================================================
 
-addSubjectButton.addEventListener("click", function() {
+addSubjectButton.addEventListener(
+    "click",
+    function() {
 
-    subjectModal.style.display = "flex";
+        subjectModal.style.display =
+            "flex";
 
-});
-
-
-closeModal.addEventListener("click", function() {
-
-    subjectModal.style.display = "none";
-
-    subjectMessage.textContent = "";
-
-});
-
-
-subjectForm.addEventListener("submit", async function(event) {
-
-    event.preventDefault();
-
-    subjectMessage.textContent =
-        "Saving...";
-
-
-    const {
-        data: {
-            user
-        }
-    } = await supabaseClient.auth.getUser();
-
-
-    if (!user) {
-
-        subjectMessage.textContent =
-            "You are not logged in.";
-
-        return;
     }
+);
 
 
-    const subject = {
+// ============================================================
+// CLOSE SUBJECT MODAL
+// ============================================================
 
-        user_id: user.id,
-
-        subject_id:
-            document.getElementById("subjectId")
-                .value.trim(),
-
-        name:
-            document.getElementById("subjectName")
-                .value.trim(),
-
-        age:
-            Number(
-                document.getElementById("subjectAge")
-                    .value
-            ),
-
-        gender:
-            document.getElementById("subjectGender")
-                .value
-
-    };
-
-
-    const {
-        error
-    } = await supabaseClient
-        .from("subjects")
-        .insert(subject);
-
-
-    if (error) {
-
-        subjectMessage.textContent =
-            "Error: " + error.message;
-
-        console.error(error);
-
-        return;
-    }
-
-
-    subjectMessage.textContent =
-        "Subject saved successfully.";
-
-
-    subjectForm.reset();
-
-    await loadSubjects();
-
-
-    setTimeout(() => {
+closeModal.addEventListener(
+    "click",
+    function() {
 
         subjectModal.style.display =
             "none";
 
         subjectMessage.textContent = "";
 
-    }, 1000);
+    }
+);
 
-});
+
+// ============================================================
+// ADD SUBJECT
+// ============================================================
+
+subjectForm.addEventListener(
+    "submit",
+    async function(event) {
+
+        event.preventDefault();
+
+
+        subjectMessage.textContent =
+            "Saving...";
+
+
+        // ----------------------------------------------------
+        // GET USER
+        // ----------------------------------------------------
+
+        const {
+            data: {
+                user
+            }
+        } = await supabaseClient.auth.getUser();
+
+
+        if (!user) {
+
+            subjectMessage.textContent =
+                "You are not logged in.";
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // COLLECT FORM DATA
+        // ----------------------------------------------------
+
+        const subject = {
+
+            user_id:
+                user.id,
+
+            subject_id:
+                document
+                    .getElementById("subjectId")
+                    .value
+                    .trim(),
+
+            name:
+                document
+                    .getElementById("subjectName")
+                    .value
+                    .trim(),
+
+            age:
+                Number(
+                    document
+                        .getElementById("subjectAge")
+                        .value
+                ),
+
+            gender:
+                document
+                    .getElementById("subjectGender")
+                    .value
+
+        };
+
+
+        // ----------------------------------------------------
+        // INSERT SUBJECT
+        // ----------------------------------------------------
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .insert(subject)
+            .select()
+            .single();
+
+
+        // ----------------------------------------------------
+        // ERROR
+        // ----------------------------------------------------
+
+        if (error) {
+
+            subjectMessage.innerHTML = `
+                <span class="error-box">
+
+                    Error:
+                    ${escapeHtml(error.message)}
+
+                    <br>
+
+                    Code:
+                    ${escapeHtml(
+                        error.code ?? "N/A"
+                    )}
+
+                </span>
+            `;
+
+            console.error(
+                "Add subject error:",
+                error
+            );
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // SUCCESS
+        // ----------------------------------------------------
+
+        subjectMessage.textContent =
+            "Subject saved successfully.";
+
+
+        subjectForm.reset();
+
+
+        // ----------------------------------------------------
+        // REFRESH SUBJECT LIST
+        // ----------------------------------------------------
+
+        await loadSubjects();
+
+
+        // ----------------------------------------------------
+        // CLOSE MODAL
+        // ----------------------------------------------------
+
+        setTimeout(() => {
+
+            subjectModal.style.display =
+                "none";
+
+            subjectMessage.textContent = "";
+
+        }, 1000);
+
+    }
+);
 
 
 // ============================================================
@@ -510,34 +830,102 @@ async function checkSession() {
 }
 
 
+// Run session check
+
 checkSession();
 
 
 // ============================================================
-// HELPERS
+// AUTH STATE CHANGE
+// ============================================================
+
+supabaseClient.auth.onAuthStateChange(
+    async function(event, session) {
+
+        if (event === "SIGNED_OUT") {
+
+            dashboard.style.display =
+                "none";
+
+            loginScreen.style.display =
+                "flex";
+
+            return;
+        }
+
+        if (
+            event === "SIGNED_IN" &&
+            session
+        ) {
+
+            await loadDashboard();
+
+        }
+
+    }
+);
+
+
+// ============================================================
+// ESCAPE HTML
 // ============================================================
 
 function escapeHtml(value) {
 
-    if (value === null || value === undefined) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
         return "";
+
     }
 
+
     return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
 }
 
+
+// ============================================================
+// FORMAT DATE
+// ============================================================
 
 function formatDate(value) {
 
     if (!value) {
+
         return "-";
+
     }
+
 
     return new Date(value)
         .toLocaleString();
+
 }
