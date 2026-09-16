@@ -1,931 +1,924 @@
-// ============================================================
-// SUPABASE CONFIGURATION
-// ============================================================
+// ==========================================
+// ACOUSTIC BONE SCANNER
+// GitHub Pages + Supabase
+// ==========================================
+
+// ---------- SUPABASE CONFIG ----------
 
 const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
 const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
-const supabaseClient = window.supabase.createClient(
+const { createClient } = supabase;
+
+const db = createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
 
 
-// ============================================================
-// ELEMENTS
-// ============================================================
+// ---------- GLOBAL USER ----------
 
-const loginScreen = document.getElementById("loginScreen");
-const dashboard = document.getElementById("dashboard");
-
-const loginForm = document.getElementById("loginForm");
-const loginMessage = document.getElementById("loginMessage");
-
-const logoutButton = document.getElementById("logoutButton");
-
-const userInfo = document.getElementById("userInfo");
-
-const subjectCount = document.getElementById("subjectCount");
-const scanCount = document.getElementById("scanCount");
-const referenceCount = document.getElementById("referenceCount");
-
-const subjectList = document.getElementById("subjectList");
-const scanList = document.getElementById("scanList");
-const referenceList = document.getElementById("referenceList");
-
-const adminPanel = document.getElementById("adminPanel");
-
-const subjectModal = document.getElementById("subjectModal");
-const addSubjectButton = document.getElementById("addSubjectButton");
-const closeModal = document.getElementById("closeModal");
-
-const subjectForm = document.getElementById("subjectForm");
-const subjectMessage = document.getElementById("subjectMessage");
+let currentUser = null;
+let currentProfile = null;
 
 
-// ============================================================
+// ==========================================
+// PAGE INITIALIZATION
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    document.getElementById("adminPanel").style.display = "none";
+
+    const {
+        data: { session }
+    } = await db.auth.getSession();
+
+    if (session) {
+        currentUser = session.user;
+        await loadDashboard();
+    } else {
+        showLogin();
+    }
+
+});
+
+
+// ==========================================
 // LOGIN
-// ============================================================
+// ==========================================
 
-loginForm.addEventListener("submit", async function(event) {
+async function login() {
 
-    event.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
 
-    loginMessage.textContent = "Logging in...";
+    const message = document.getElementById("loginMessage");
 
-    const email =
-        document.getElementById("email").value.trim();
+    message.textContent = "";
 
-    const password =
-        document.getElementById("password").value;
+    if (!email || !password) {
+        message.textContent = "Enter email and password.";
+        return;
+    }
 
     const {
         data,
         error
-    } = await supabaseClient.auth.signInWithPassword({
+    } = await db.auth.signInWithPassword({
         email: email,
         password: password
     });
 
     if (error) {
 
-        loginMessage.textContent =
-            "Login failed: " + error.message;
+        console.error(error);
+
+        message.textContent = error.message;
 
         return;
     }
 
-    loginMessage.textContent = "";
+    currentUser = data.user;
 
     await loadDashboard();
-});
+}
 
 
-// ============================================================
+// ==========================================
 // LOGOUT
-// ============================================================
+// ==========================================
 
-logoutButton.addEventListener("click", async function() {
+async function logout() {
 
-    await supabaseClient.auth.signOut();
+    await db.auth.signOut();
 
-    dashboard.style.display = "none";
-    loginScreen.style.display = "flex";
+    currentUser = null;
+    currentProfile = null;
 
-    userInfo.textContent = "";
+    showLogin();
+}
 
-});
+
+// ==========================================
+// SHOW LOGIN
+// ==========================================
+
+function showLogin() {
+
+    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("dashboard").style.display = "none";
+
+}
 
 
-// ============================================================
-// LOAD DASHBOARD
-// ============================================================
+// ==========================================
+// SHOW DASHBOARD
+// ==========================================
 
 async function loadDashboard() {
 
-    const {
-        data: {
-            user
-        }
-    } = await supabaseClient.auth.getUser();
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
 
-    if (!user) {
-        return;
-    }
+    await loadProfile();
+    await loadSubjects();
+    await loadScans();
+    await loadReferenceGroups();
 
-    loginScreen.style.display = "none";
-    dashboard.style.display = "block";
+    if (currentProfile && currentProfile.role === "admin") {
 
-    userInfo.textContent =
-        "Logged in as: " + user.email;
+        document.getElementById("adminPanel").style.display = "block";
 
-
-    // --------------------------------------------------------
-    // LOAD PROFILE
-    // --------------------------------------------------------
-
-    const {
-        data: profile,
-        error: profileError
-    } = await supabaseClient
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-
-    if (!profileError && profile) {
-
-        userInfo.textContent =
-            "Logged in as: " +
-            profile.email +
-            " (" +
-            profile.role +
-            ")";
-
-
-        if (profile.role === "admin") {
-
-            adminPanel.style.display = "block";
-
-        } else {
-
-            adminPanel.style.display = "none";
-
-        }
+        await loadAllUsers();
+        await loadAllSubjects();
+        await loadAllScans();
+        await loadAdminReferences();
 
     } else {
 
-        console.error(
-            "Profile loading error:",
-            profileError
-        );
+        document.getElementById("adminPanel").style.display = "none";
 
     }
 
-
-    // --------------------------------------------------------
-    // LOAD DASHBOARD DATA
-    // --------------------------------------------------------
-
-    await loadSubjects();
-
-    await loadScans();
-
-    await loadReferences();
 }
 
 
-// ============================================================
-// LOAD SUBJECTS
-// ============================================================
+// ==========================================
+// LOAD PROFILE
+// ==========================================
+
+async function loadProfile() {
+
+    const {
+        data,
+        error
+    } = await db
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
+
+    if (error) {
+
+        console.error("Profile error:", error);
+
+        document.getElementById("userInfo").textContent =
+            currentUser.email;
+
+        return;
+    }
+
+    currentProfile = data;
+
+    document.getElementById("userInfo").textContent =
+        `${data.full_name || currentUser.email} • ${data.role}`;
+
+}
+
+
+// ==========================================
+// SUBJECTS — USER
+// ==========================================
 
 async function loadSubjects() {
 
-    subjectList.innerHTML =
-        "<p>Loading subjects...</p>";
+    const table = document.getElementById("subjectsTable");
+    const message = document.getElementById("subjectsMessage");
 
-
-    // --------------------------------------------------------
-    // CHECK LOGIN
-    // --------------------------------------------------------
-
-    const {
-        data: {
-            user
-        }
-    } = await supabaseClient.auth.getUser();
-
-
-    if (!user) {
-
-        subjectList.innerHTML =
-            "<p>You are not logged in.</p>";
-
-        return;
-    }
-
-
-    // --------------------------------------------------------
-    // GET SUBJECTS
-    // --------------------------------------------------------
+    table.innerHTML = "";
+    message.textContent = "";
 
     const {
         data,
         error
-    } = await supabaseClient
+    } = await db
         .from("subjects")
-        .select(
-            "id, user_id, subject_id, name, age, gender, created_at"
-        )
+        .select("*")
+        .eq("user_id", currentUser.id)
         .order("created_at", {
             ascending: false
         });
 
-
-    // --------------------------------------------------------
-    // ERROR
-    // --------------------------------------------------------
-
     if (error) {
 
-        subjectList.innerHTML = `
-            <div class="error-box">
+        console.error("Subjects error:", error);
 
-                <strong>Error loading subjects</strong>
-
-                <br><br>
-
-                ${escapeHtml(error.message)}
-
-                <br>
-
-                Code:
-                ${escapeHtml(error.code ?? "N/A")}
-
-                <br>
-
-                Details:
-                ${escapeHtml(error.details ?? "N/A")}
-
-            </div>
-        `;
-
-        console.error(
-            "Subjects error:",
-            error
-        );
+        message.textContent =
+            "Error loading subjects: " + error.message;
 
         return;
     }
 
-
-    // --------------------------------------------------------
-    // UPDATE COUNT
-    // --------------------------------------------------------
-
-    subjectCount.textContent =
+    document.getElementById("subjectCount").textContent =
         data.length;
-
-
-    // --------------------------------------------------------
-    // NO SUBJECTS
-    // --------------------------------------------------------
 
     if (data.length === 0) {
 
-        subjectList.innerHTML =
-            "<p>No subjects added yet.</p>";
+        table.innerHTML =
+            `<tr><td colspan="5">No subjects added yet.</td></tr>`;
 
         return;
     }
-
-
-    // --------------------------------------------------------
-    // CREATE TABLE
-    // --------------------------------------------------------
-
-    let html = `
-        <table>
-
-            <tr>
-                <th>Subject ID</th>
-                <th>Name</th>
-                <th>Age</th>
-                <th>Gender</th>
-            </tr>
-    `;
-
 
     data.forEach(subject => {
 
-        html += `
-            <tr>
+        const row = document.createElement("tr");
 
-                <td>
-                    ${escapeHtml(subject.subject_id)}
-                </td>
-
-                <td>
-                    ${escapeHtml(subject.name)}
-                </td>
-
-                <td>
-                    ${subject.age ?? "-"}
-                </td>
-
-                <td>
-                    ${escapeHtml(subject.gender)}
-                </td>
-
-            </tr>
+        row.innerHTML = `
+            <td>${escapeHTML(subject.subject_id)}</td>
+            <td>${escapeHTML(subject.name || "")}</td>
+            <td>${subject.age ?? ""}</td>
+            <td>${escapeHTML(subject.gender || "")}</td>
+            <td>${formatDate(subject.created_at)}</td>
         `;
+
+        table.appendChild(row);
 
     });
 
-
-    html += `
-        </table>
-    `;
-
-
-    subjectList.innerHTML =
-        html;
 }
 
 
-// ============================================================
-// LOAD SCANS
-// ============================================================
+// ==========================================
+// ADD SUBJECT
+// ==========================================
+
+async function addSubject() {
+
+    const subjectId =
+        document.getElementById("subjectId").value.trim();
+
+    const name =
+        document.getElementById("subjectName").value.trim();
+
+    const age =
+        parseInt(document.getElementById("subjectAge").value);
+
+    const gender =
+        document.getElementById("subjectGender").value;
+
+    const message =
+        document.getElementById("subjectMessage");
+
+    message.textContent = "";
+
+    if (!subjectId || !name || !age || !gender) {
+
+        message.textContent =
+            "Please fill all fields.";
+
+        return;
+    }
+
+    const {
+        error
+    } = await db
+        .from("subjects")
+        .insert({
+            user_id: currentUser.id,
+            subject_id: subjectId,
+            name: name,
+            age: age,
+            gender: gender
+        });
+
+    if (error) {
+
+        console.error(error);
+
+        message.textContent =
+            error.message;
+
+        return;
+    }
+
+    message.textContent =
+        "Subject added successfully.";
+
+    document.getElementById("subjectId").value = "";
+    document.getElementById("subjectName").value = "";
+    document.getElementById("subjectAge").value = "";
+    document.getElementById("subjectGender").value = "";
+
+    await loadSubjects();
+
+    setTimeout(() => {
+        closeSubjectModal();
+    }, 700);
+
+}
+
+
+// ==========================================
+// SCANS — USER
+// ==========================================
 
 async function loadScans() {
 
-    scanList.innerHTML =
-        "<p>Loading scans...</p>";
+    const table =
+        document.getElementById("scansTable");
 
+    table.innerHTML = "";
 
     const {
         data,
         error
-    } = await supabaseClient
+    } = await db
         .from("scan_measurements")
         .select("*")
+        .eq("user_id", currentUser.id)
         .order("created_at", {
             ascending: false
         });
 
-
-    // --------------------------------------------------------
-    // ERROR
-    // --------------------------------------------------------
-
     if (error) {
 
-        scanList.innerHTML = `
-            <div class="error-box">
+        console.error("Scan error:", error);
 
-                <strong>Error loading scans</strong>
-
-                <br><br>
-
-                ${escapeHtml(error.message)}
-
-                <br>
-
-                Code:
-                ${escapeHtml(error.code ?? "N/A")}
-
-                <br>
-
-                Details:
-                ${escapeHtml(error.details ?? "N/A")}
-
-            </div>
-        `;
-
-        console.error(
-            "Scans error:",
-            error
-        );
+        table.innerHTML =
+            `<tr><td colspan="8">
+                Error loading scans: ${escapeHTML(error.message)}
+             </td></tr>`;
 
         return;
     }
 
-
-    // --------------------------------------------------------
-    // UPDATE COUNT
-    // --------------------------------------------------------
-
-    scanCount.textContent =
+    document.getElementById("scanCount").textContent =
         data.length;
-
-
-    // --------------------------------------------------------
-    // NO SCANS
-    // --------------------------------------------------------
 
     if (data.length === 0) {
 
-        scanList.innerHTML =
-            "<p>No scans recorded yet.</p>";
+        table.innerHTML =
+            `<tr><td colspan="8">No scans yet.</td></tr>`;
 
         return;
     }
 
-
-    // --------------------------------------------------------
-    // CREATE TABLE
-    // --------------------------------------------------------
-
-    let html = `
-        <table>
-
-            <tr>
-                <th>Scan ID</th>
-                <th>F₀</th>
-                <th>RMS</th>
-                <th>Q</th>
-                <th>Bandwidth</th>
-                <th>Status</th>
-                <th>Date</th>
-            </tr>
-    `;
-
-
     data.forEach(scan => {
 
-        html += `
-            <tr>
+        const row =
+            document.createElement("tr");
 
-                <td>
-                    ${escapeHtml(scan.scan_id)}
-                </td>
-
-                <td>
-                    ${scan.f0 ?? "-"}
-                </td>
-
-                <td>
-                    ${scan.rms ?? "-"}
-                </td>
-
-                <td>
-                    ${scan.q_factor ?? "-"}
-                </td>
-
-                <td>
-                    ${scan.bandwidth ?? "-"}
-                </td>
-
-                <td>
-                    ${escapeHtml(
-                        scan.comparison_status ?? "-"
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(scan.created_at)}
-                </td>
-
-            </tr>
+        row.innerHTML = `
+            <td>${escapeHTML(scan.scan_id || "")}</td>
+            <td>${escapeHTML(scan.subject_id || "")}</td>
+            <td>${scan.f0 ?? ""}</td>
+            <td>${scan.rms ?? ""}</td>
+            <td>${scan.q_factor ?? ""}</td>
+            <td>${scan.bandwidth ?? ""}</td>
+            <td>${escapeHTML(scan.comparison_status || "—")}</td>
+            <td>${formatDate(scan.created_at)}</td>
         `;
+
+        table.appendChild(row);
 
     });
 
-
-    html += `
-        </table>
-    `;
-
-
-    scanList.innerHTML =
-        html;
 }
 
 
-// ============================================================
-// LOAD REFERENCE GROUPS
-// ============================================================
+// ==========================================
+// REFERENCE GROUPS — USER
+// ==========================================
 
-async function loadReferences() {
+async function loadReferenceGroups() {
 
-    referenceList.innerHTML =
-        "<p>Loading reference data...</p>";
+    const table =
+        document.getElementById("referenceTable");
 
+    const message =
+        document.getElementById("referenceMessage");
+
+    table.innerHTML = "";
+    message.textContent = "";
 
     const {
         data,
         error
-    } = await supabaseClient
+    } = await db
         .from("reference_groups")
         .select("*")
         .order("age_min", {
             ascending: true
         });
 
-
-    // --------------------------------------------------------
-    // ERROR
-    // --------------------------------------------------------
-
     if (error) {
 
-        referenceList.innerHTML = `
-            <div class="error-box">
+        console.error("Reference error:", error);
 
-                <strong>Error loading reference data</strong>
-
-                <br><br>
-
-                ${escapeHtml(error.message)}
-
-                <br>
-
-                Code:
-                ${escapeHtml(error.code ?? "N/A")}
-
-                <br>
-
-                Details:
-                ${escapeHtml(error.details ?? "N/A")}
-
-            </div>
-        `;
-
-        console.error(
-            "Reference error:",
-            error
-        );
+        message.textContent =
+            "Error loading reference data: " +
+            error.message;
 
         return;
     }
 
-
-    // --------------------------------------------------------
-    // UPDATE COUNT
-    // --------------------------------------------------------
-
-    referenceCount.textContent =
+    document.getElementById("referenceCount").textContent =
         data.length;
-
-
-    // --------------------------------------------------------
-    // NO REFERENCE GROUPS
-    // --------------------------------------------------------
 
     if (data.length === 0) {
 
-        referenceList.innerHTML =
-            "<p>No reference groups created yet.</p>";
+        table.innerHTML =
+            `<tr><td colspan="7">
+                No reference groups available.
+             </td></tr>`;
 
         return;
     }
 
+    data.forEach(group => {
 
-    // --------------------------------------------------------
-    // CREATE TABLE
-    // --------------------------------------------------------
+        const row =
+            document.createElement("tr");
 
-    let html = `
-        <table>
-
-            <tr>
-                <th>Age Group</th>
-                <th>Gender</th>
-                <th>Samples</th>
-                <th>Mean F₀</th>
-                <th>Mean RMS</th>
-                <th>Mean Q</th>
-            </tr>
-    `;
-
-
-    data.forEach(ref => {
-
-        html += `
-            <tr>
-
-                <td>
-                    ${ref.age_min}–${ref.age_max}
-                </td>
-
-                <td>
-                    ${escapeHtml(ref.gender)}
-                </td>
-
-                <td>
-                    ${ref.sample_count ?? 0}
-                </td>
-
-                <td>
-                    ${ref.mean_f0 ?? "-"}
-                </td>
-
-                <td>
-                    ${ref.mean_rms ?? "-"}
-                </td>
-
-                <td>
-                    ${ref.mean_q_factor ?? "-"}
-                </td>
-
-            </tr>
+        row.innerHTML = `
+            <td>${group.age_min}–${group.age_max}</td>
+            <td>${escapeHTML(group.gender || "All")}</td>
+            <td>${group.sample_count ?? 0}</td>
+            <td>${group.mean_f0 ?? "—"}</td>
+            <td>${group.mean_rms ?? "—"}</td>
+            <td>${group.mean_q_factor ?? "—"}</td>
+            <td>${group.mean_bandwidth ?? "—"}</td>
         `;
+
+        table.appendChild(row);
 
     });
 
-
-    html += `
-        </table>
-    `;
-
-
-    referenceList.innerHTML =
-        html;
 }
 
 
-// ============================================================
-// ADD SUBJECT — OPEN MODAL
-// ============================================================
+// ==========================================
+// ADMIN — USERS
+// ==========================================
 
-addSubjectButton.addEventListener(
-    "click",
-    function() {
+async function loadAllUsers() {
 
-        subjectModal.style.display =
-            "flex";
+    const table =
+        document.getElementById("usersTable");
 
-    }
-);
-
-
-// ============================================================
-// CLOSE SUBJECT MODAL
-// ============================================================
-
-closeModal.addEventListener(
-    "click",
-    function() {
-
-        subjectModal.style.display =
-            "none";
-
-        subjectMessage.textContent = "";
-
-    }
-);
-
-
-// ============================================================
-// ADD SUBJECT
-// ============================================================
-
-subjectForm.addEventListener(
-    "submit",
-    async function(event) {
-
-        event.preventDefault();
-
-
-        subjectMessage.textContent =
-            "Saving...";
-
-
-        // ----------------------------------------------------
-        // GET USER
-        // ----------------------------------------------------
-
-        const {
-            data: {
-                user
-            }
-        } = await supabaseClient.auth.getUser();
-
-
-        if (!user) {
-
-            subjectMessage.textContent =
-                "You are not logged in.";
-
-            return;
-        }
-
-
-        // ----------------------------------------------------
-        // COLLECT FORM DATA
-        // ----------------------------------------------------
-
-        const subject = {
-
-            user_id:
-                user.id,
-
-            subject_id:
-                document
-                    .getElementById("subjectId")
-                    .value
-                    .trim(),
-
-            name:
-                document
-                    .getElementById("subjectName")
-                    .value
-                    .trim(),
-
-            age:
-                Number(
-                    document
-                        .getElementById("subjectAge")
-                        .value
-                ),
-
-            gender:
-                document
-                    .getElementById("subjectGender")
-                    .value
-
-        };
-
-
-        // ----------------------------------------------------
-        // INSERT SUBJECT
-        // ----------------------------------------------------
-
-        const {
-            data,
-            error
-        } = await supabaseClient
-            .from("subjects")
-            .insert(subject)
-            .select()
-            .single();
-
-
-        // ----------------------------------------------------
-        // ERROR
-        // ----------------------------------------------------
-
-        if (error) {
-
-            subjectMessage.innerHTML = `
-                <span class="error-box">
-
-                    Error:
-                    ${escapeHtml(error.message)}
-
-                    <br>
-
-                    Code:
-                    ${escapeHtml(
-                        error.code ?? "N/A"
-                    )}
-
-                </span>
-            `;
-
-            console.error(
-                "Add subject error:",
-                error
-            );
-
-            return;
-        }
-
-
-        // ----------------------------------------------------
-        // SUCCESS
-        // ----------------------------------------------------
-
-        subjectMessage.textContent =
-            "Subject saved successfully.";
-
-
-        subjectForm.reset();
-
-
-        // ----------------------------------------------------
-        // REFRESH SUBJECT LIST
-        // ----------------------------------------------------
-
-        await loadSubjects();
-
-
-        // ----------------------------------------------------
-        // CLOSE MODAL
-        // ----------------------------------------------------
-
-        setTimeout(() => {
-
-            subjectModal.style.display =
-                "none";
-
-            subjectMessage.textContent = "";
-
-        }, 1000);
-
-    }
-);
-
-
-// ============================================================
-// SESSION CHECK
-// ============================================================
-
-async function checkSession() {
+    table.innerHTML = "";
 
     const {
-        data: {
-            session
-        }
-    } = await supabaseClient.auth.getSession();
+        data,
+        error
+    } = await db
+        .from("profiles")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
 
+    if (error) {
 
-    if (session) {
+        console.error("Users error:", error);
 
-        await loadDashboard();
+        table.innerHTML =
+            `<tr><td colspan="4">
+                ${escapeHTML(error.message)}
+             </td></tr>`;
 
+        return;
     }
+
+    data.forEach(user => {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${escapeHTML(user.email || "")}</td>
+            <td>${escapeHTML(user.full_name || "")}</td>
+            <td>${escapeHTML(user.role || "")}</td>
+            <td class="small-id">
+                ${escapeHTML(user.id)}
+            </td>
+        `;
+
+        table.appendChild(row);
+
+    });
 
 }
 
 
-// Run session check
+// ==========================================
+// ADMIN — ALL SUBJECTS
+// ==========================================
 
-checkSession();
+async function loadAllSubjects() {
+
+    const table =
+        document.getElementById("allSubjectsTable");
+
+    table.innerHTML = "";
+
+    const {
+        data,
+        error
+    } = await db
+        .from("subjects")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+    if (error) {
+
+        console.error("All subjects error:", error);
+
+        table.innerHTML =
+            `<tr><td colspan="5">
+                ${escapeHTML(error.message)}
+             </td></tr>`;
+
+        return;
+    }
+
+    if (data.length === 0) {
+
+        table.innerHTML =
+            `<tr><td colspan="5">No subjects.</td></tr>`;
+
+        return;
+    }
+
+    data.forEach(subject => {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${escapeHTML(subject.subject_id)}</td>
+            <td>${escapeHTML(subject.name || "")}</td>
+            <td>${subject.age ?? ""}</td>
+            <td>${escapeHTML(subject.gender || "")}</td>
+            <td class="small-id">
+                ${escapeHTML(subject.user_id)}
+            </td>
+        `;
+
+        table.appendChild(row);
+
+    });
+
+}
 
 
-// ============================================================
-// AUTH STATE CHANGE
-// ============================================================
+// ==========================================
+// ADMIN — ALL SCANS
+// ==========================================
 
-supabaseClient.auth.onAuthStateChange(
-    async function(event, session) {
+async function loadAllScans() {
 
-        if (event === "SIGNED_OUT") {
+    const table =
+        document.getElementById("allScansTable");
 
-            dashboard.style.display =
-                "none";
+    table.innerHTML = "";
 
-            loginScreen.style.display =
-                "flex";
+    const {
+        data,
+        error
+    } = await db
+        .from("scan_measurements")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
 
-            return;
-        }
+    if (error) {
 
-        if (
-            event === "SIGNED_IN" &&
-            session
-        ) {
+        console.error("All scans error:", error);
 
-            await loadDashboard();
+        table.innerHTML =
+            `<tr><td colspan="8">
+                ${escapeHTML(error.message)}
+             </td></tr>`;
+
+        return;
+    }
+
+    if (data.length === 0) {
+
+        table.innerHTML =
+            `<tr><td colspan="8">No scans.</td></tr>`;
+
+        return;
+    }
+
+    data.forEach(scan => {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${escapeHTML(scan.scan_id || "")}</td>
+            <td>${escapeHTML(scan.subject_id || "")}</td>
+            <td>${scan.f0 ?? ""}</td>
+            <td>${scan.rms ?? ""}</td>
+            <td>${scan.q_factor ?? ""}</td>
+            <td>${scan.bandwidth ?? ""}</td>
+            <td>${escapeHTML(scan.comparison_status || "—")}</td>
+            <td>${formatDate(scan.created_at)}</td>
+        `;
+
+        table.appendChild(row);
+
+    });
+
+}
+
+
+// ==========================================
+// ADMIN — REFERENCE MEASUREMENTS
+// ==========================================
+
+async function loadAdminReferences() {
+
+    const table =
+        document.getElementById("adminReferenceTable");
+
+    table.innerHTML = "";
+
+    const {
+        data,
+        error
+    } = await db
+        .from("reference_measurements")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+    if (error) {
+
+        console.error("Admin reference error:", error);
+
+        table.innerHTML =
+            `<tr><td colspan="9">
+                ${escapeHTML(error.message)}
+             </td></tr>`;
+
+        return;
+    }
+
+    if (data.length === 0) {
+
+        table.innerHTML =
+            `<tr><td colspan="9">
+                No reference measurements.
+             </td></tr>`;
+
+        return;
+    }
+
+    data.forEach(reference => {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${reference.reference_id ?? reference.id ?? ""}</td>
+            <td>${reference.age ?? ""}</td>
+            <td>${escapeHTML(reference.gender || "")}</td>
+            <td>${escapeHTML(reference.measurement_side || "")}</td>
+            <td>${reference.f0 ?? ""}</td>
+            <td>${reference.rms ?? ""}</td>
+            <td>${reference.q_factor ?? ""}</td>
+            <td>${reference.bandwidth ?? ""}</td>
+
+            <td>
+                <button
+                    class="danger-btn"
+                    onclick="deleteReference(${reference.id})">
+                    Delete
+                </button>
+            </td>
+        `;
+
+        table.appendChild(row);
+
+    });
+
+}
+
+
+// ==========================================
+// ADMIN — ADD REFERENCE
+// ==========================================
+
+async function addReference() {
+
+    const age =
+        parseInt(
+            document.getElementById("referenceAge").value
+        );
+
+    const gender =
+        document.getElementById("referenceGender").value;
+
+    const side =
+        document.getElementById("referenceSide").value;
+
+    const f0 =
+        parseFloat(
+            document.getElementById("referenceF0").value
+        );
+
+    const rms =
+        parseFloat(
+            document.getElementById("referenceRMS").value
+        );
+
+    const q =
+        parseFloat(
+            document.getElementById("referenceQ").value
+        );
+
+    const bandwidth =
+        parseFloat(
+            document.getElementById("referenceBandwidth").value
+        );
+
+    const message =
+        document.getElementById("referenceAddMessage");
+
+    message.textContent = "";
+
+    if (
+        !age ||
+        !gender ||
+        !side ||
+        Number.isNaN(f0) ||
+        Number.isNaN(rms) ||
+        Number.isNaN(q) ||
+        Number.isNaN(bandwidth)
+    ) {
+
+        message.textContent =
+            "Please fill all fields.";
+
+        return;
+    }
+
+    const {
+        error
+    } = await db
+        .from("reference_measurements")
+        .insert({
+            age: age,
+            gender: gender,
+            measurement_side: side,
+            f0: f0,
+            rms: rms,
+            q_factor: q,
+            bandwidth: bandwidth
+        });
+
+    if (error) {
+
+        console.error(error);
+
+        message.textContent =
+            error.message;
+
+        return;
+    }
+
+    message.textContent =
+        "Reference measurement added.";
+
+    document.getElementById("referenceAge").value = "";
+    document.getElementById("referenceGender").value = "";
+    document.getElementById("referenceSide").value = "";
+    document.getElementById("referenceF0").value = "";
+    document.getElementById("referenceRMS").value = "";
+    document.getElementById("referenceQ").value = "";
+    document.getElementById("referenceBandwidth").value = "";
+
+    await loadAdminReferences();
+
+    setTimeout(() => {
+        closeReferenceModal();
+    }, 700);
+
+}
+
+
+// ==========================================
+// ADMIN — DELETE REFERENCE
+// ==========================================
+
+async function deleteReference(id) {
+
+    if (!confirm("Delete this reference measurement?")) {
+        return;
+    }
+
+    const {
+        error
+    } = await db
+        .from("reference_measurements")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+
+        alert(error.message);
+
+        return;
+    }
+
+    await loadAdminReferences();
+
+}
+
+
+// ==========================================
+// SUBJECT MODAL
+// ==========================================
+
+function openSubjectModal() {
+
+    document.getElementById("subjectModal")
+        .style.display = "flex";
+
+}
+
+function closeSubjectModal() {
+
+    document.getElementById("subjectModal")
+        .style.display = "none";
+
+}
+
+
+// ==========================================
+// REFERENCE MODAL
+// ==========================================
+
+function openReferenceModal() {
+
+    document.getElementById("referenceModal")
+        .style.display = "flex";
+
+}
+
+function closeReferenceModal() {
+
+    document.getElementById("referenceModal")
+        .style.display = "none";
+
+}
+
+
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+
+function formatDate(date) {
+
+    if (!date) {
+        return "—";
+    }
+
+    return new Date(date).toLocaleString();
+}
+
+
+function escapeHTML(value) {
+
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+// ==========================================
+// AUTH STATE LISTENER
+// ==========================================
+
+db.auth.onAuthStateChange(
+    async (event, session) => {
+
+        if (session) {
+
+            currentUser = session.user;
+
+        } else {
+
+            currentUser = null;
+            currentProfile = null;
 
         }
 
     }
 );
-
-
-// ============================================================
-// ESCAPE HTML
-// ============================================================
-
-function escapeHtml(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "";
-
-    }
-
-
-    return String(value)
-
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-}
-
-
-// ============================================================
-// FORMAT DATE
-// ============================================================
-
-function formatDate(value) {
-
-    if (!value) {
-
-        return "-";
-
-    }
-
-
-    return new Date(value)
-        .toLocaleString();
-
-}
