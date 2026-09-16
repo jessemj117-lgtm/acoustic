@@ -47,18 +47,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ==========================================
 // LOGIN
 // ==========================================
-
 async function login() {
 
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
+    const email =
+        document.getElementById("email").value.trim();
 
-    const message = document.getElementById("loginMessage");
+    const password =
+        document.getElementById("password").value;
+
+    const message =
+        document.getElementById("loginMessage");
 
     message.textContent = "";
 
     if (!email || !password) {
-        message.textContent = "Enter email and password.";
+
+        message.textContent =
+            "Please enter email and password.";
+
         return;
     }
 
@@ -72,9 +78,10 @@ async function login() {
 
     if (error) {
 
-        console.error(error);
+        console.error("Login error:", error);
 
-        message.textContent = error.message;
+        message.textContent =
+            "Login failed: " + error.message;
 
         return;
     }
@@ -83,8 +90,105 @@ async function login() {
 
     await loadDashboard();
 }
+// ==========================================
+// REGISTRATION
+// ==========================================
+
+function showRegister() {
+
+    document.getElementById("loginScreen").style.display = "none";
+
+    document.getElementById("registerScreen").style.display = "flex";
+
+    document.getElementById("registerMessage").textContent = "";
+}
 
 
+function showLogin() {
+
+    document.getElementById("registerScreen").style.display = "none";
+
+    document.getElementById("loginScreen").style.display = "flex";
+
+    document.getElementById("loginMessage").textContent = "";
+}
+
+
+async function registerUser() {
+
+    const name =
+        document.getElementById("registerName").value.trim();
+
+    const email =
+        document.getElementById("registerEmail").value.trim();
+
+    const password =
+        document.getElementById("registerPassword").value;
+
+    const message =
+        document.getElementById("registerMessage");
+
+    message.textContent = "";
+
+    if (!name || !email || !password) {
+
+        message.textContent =
+            "Please fill all fields.";
+
+        return;
+    }
+
+    if (password.length < 6) {
+
+        message.textContent =
+            "Password must contain at least 6 characters.";
+
+        return;
+    }
+
+    const {
+        data,
+        error
+    } = await db.auth.signUp({
+
+        email: email,
+
+        password: password,
+
+        options: {
+
+            data: {
+                full_name: name
+            }
+
+        }
+
+    });
+
+    if (error) {
+
+        console.error("Registration error:", error);
+
+        message.textContent =
+            "Registration failed: " + error.message;
+
+        return;
+    }
+
+    /*
+     * IMPORTANT:
+     * New accounts are normal users.
+     * Admin role is NOT selectable during registration.
+     */
+
+    message.textContent =
+        "Account created successfully. You can now log in.";
+
+    document.getElementById("registerName").value = "";
+    document.getElementById("registerEmail").value = "";
+    document.getElementById("registerPassword").value = "";
+
+}
 // ==========================================
 // LOGOUT
 // ==========================================
