@@ -3,10 +3,8 @@
 // GitHub Pages + Supabase
 // ==========================================
 
-// ---------- SUPABASE CONFIG ----------
-
-const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
-const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY";
 
 const { createClient } = supabase;
 
@@ -15,38 +13,65 @@ const db = createClient(
     SUPABASE_KEY
 );
 
-
-// ---------- GLOBAL USER ----------
-
 let currentUser = null;
 let currentProfile = null;
 
 
 // ==========================================
-// PAGE INITIALIZATION
+// START
 // ==========================================
 
 document.addEventListener("DOMContentLoaded", async () => {
-
-    document.getElementById("adminPanel").style.display = "none";
 
     const {
         data: { session }
     } = await db.auth.getSession();
 
     if (session) {
+
         currentUser = session.user;
+
         await loadDashboard();
+
     } else {
+
         showLogin();
+
     }
 
 });
 
 
 // ==========================================
+// LOGIN / REGISTER SCREENS
+// ==========================================
+
+function showLogin() {
+
+    document.getElementById("loginScreen").style.display = "flex";
+
+    document.getElementById("registerScreen").style.display = "none";
+
+    document.getElementById("dashboard").style.display = "none";
+
+}
+
+
+function showRegister() {
+
+    document.getElementById("loginScreen").style.display = "none";
+
+    document.getElementById("registerScreen").style.display = "flex";
+
+    document.getElementById("dashboard").style.display = "none";
+
+}
+
+
+// ==========================================
 // LOGIN
 // ==========================================
+
 async function login() {
 
     const email =
@@ -72,8 +97,11 @@ async function login() {
         data,
         error
     } = await db.auth.signInWithPassword({
+
         email: email,
+
         password: password
+
     });
 
     if (error) {
@@ -89,30 +117,13 @@ async function login() {
     currentUser = data.user;
 
     await loadDashboard();
+
 }
+
+
 // ==========================================
-// REGISTRATION
+// REGISTER
 // ==========================================
-
-function showRegister() {
-
-    document.getElementById("loginScreen").style.display = "none";
-
-    document.getElementById("registerScreen").style.display = "flex";
-
-    document.getElementById("registerMessage").textContent = "";
-}
-
-
-function showLogin() {
-
-    document.getElementById("registerScreen").style.display = "none";
-
-    document.getElementById("loginScreen").style.display = "flex";
-
-    document.getElementById("loginMessage").textContent = "";
-}
-
 
 async function registerUser() {
 
@@ -175,20 +186,12 @@ async function registerUser() {
         return;
     }
 
-    /*
-     * IMPORTANT:
-     * New accounts are normal users.
-     * Admin role is NOT selectable during registration.
-     */
-
     message.textContent =
-        "Account created successfully. You can now log in.";
-
-    document.getElementById("registerName").value = "";
-    document.getElementById("registerEmail").value = "";
-    document.getElementById("registerPassword").value = "";
+        "Account created successfully. Check your email if confirmation is required.";
 
 }
+
+
 // ==========================================
 // LOGOUT
 // ==========================================
@@ -198,45 +201,47 @@ async function logout() {
     await db.auth.signOut();
 
     currentUser = null;
+
     currentProfile = null;
 
     showLogin();
-}
-
-
-// ==========================================
-// SHOW LOGIN
-// ==========================================
-
-function showLogin() {
-
-    document.getElementById("loginScreen").style.display = "flex";
-    document.getElementById("dashboard").style.display = "none";
 
 }
 
 
 // ==========================================
-// SHOW DASHBOARD
+// DASHBOARD
 // ==========================================
 
 async function loadDashboard() {
 
     document.getElementById("loginScreen").style.display = "none";
+
+    document.getElementById("registerScreen").style.display = "none";
+
     document.getElementById("dashboard").style.display = "block";
 
     await loadProfile();
+
     await loadSubjects();
+
     await loadScans();
+
     await loadReferenceGroups();
 
-    if (currentProfile && currentProfile.role === "admin") {
+    if (
+        currentProfile &&
+        currentProfile.role === "admin"
+    ) {
 
         document.getElementById("adminPanel").style.display = "block";
 
         await loadAllUsers();
+
         await loadAllSubjects();
+
         await loadAllScans();
+
         await loadAdminReferences();
 
     } else {
@@ -249,7 +254,7 @@ async function loadDashboard() {
 
 
 // ==========================================
-// LOAD PROFILE
+// PROFILE
 // ==========================================
 
 async function loadProfile() {
@@ -282,15 +287,19 @@ async function loadProfile() {
 
 
 // ==========================================
-// SUBJECTS — USER
+// USER SUBJECTS
 // ==========================================
 
 async function loadSubjects() {
 
-    const table = document.getElementById("subjectsTable");
-    const message = document.getElementById("subjectsMessage");
+    const table =
+        document.getElementById("subjectsTable");
+
+    const message =
+        document.getElementById("subjectsMessage");
 
     table.innerHTML = "";
+
     message.textContent = "";
 
     const {
@@ -320,14 +329,17 @@ async function loadSubjects() {
     if (data.length === 0) {
 
         table.innerHTML =
-            `<tr><td colspan="5">No subjects added yet.</td></tr>`;
+            `<tr>
+                <td colspan="5">No subjects added yet.</td>
+             </tr>`;
 
         return;
     }
 
     data.forEach(subject => {
 
-        const row = document.createElement("tr");
+        const row =
+            document.createElement("tr");
 
         row.innerHTML = `
             <td>${escapeHTML(subject.subject_id)}</td>
@@ -357,7 +369,9 @@ async function addSubject() {
         document.getElementById("subjectName").value.trim();
 
     const age =
-        parseInt(document.getElementById("subjectAge").value);
+        parseInt(
+            document.getElementById("subjectAge").value
+        );
 
     const gender =
         document.getElementById("subjectGender").value;
@@ -380,11 +394,17 @@ async function addSubject() {
     } = await db
         .from("subjects")
         .insert({
+
             user_id: currentUser.id,
+
             subject_id: subjectId,
+
             name: name,
+
             age: age,
+
             gender: gender
+
         });
 
     if (error) {
@@ -400,22 +420,19 @@ async function addSubject() {
     message.textContent =
         "Subject added successfully.";
 
-    document.getElementById("subjectId").value = "";
-    document.getElementById("subjectName").value = "";
-    document.getElementById("subjectAge").value = "";
-    document.getElementById("subjectGender").value = "";
-
     await loadSubjects();
 
     setTimeout(() => {
+
         closeSubjectModal();
+
     }, 700);
 
 }
 
 
 // ==========================================
-// SCANS — USER
+// USER SCANS
 // ==========================================
 
 async function loadScans() {
@@ -441,9 +458,11 @@ async function loadScans() {
         console.error("Scan error:", error);
 
         table.innerHTML =
-            `<tr><td colspan="8">
-                Error loading scans: ${escapeHTML(error.message)}
-             </td></tr>`;
+            `<tr>
+                <td colspan="8">
+                    ${escapeHTML(error.message)}
+                </td>
+             </tr>`;
 
         return;
     }
@@ -454,7 +473,9 @@ async function loadScans() {
     if (data.length === 0) {
 
         table.innerHTML =
-            `<tr><td colspan="8">No scans yet.</td></tr>`;
+            `<tr>
+                <td colspan="8">No scans yet.</td>
+             </tr>`;
 
         return;
     }
@@ -483,7 +504,7 @@ async function loadScans() {
 
 
 // ==========================================
-// REFERENCE GROUPS — USER
+// REFERENCE GROUPS
 // ==========================================
 
 async function loadReferenceGroups() {
@@ -495,6 +516,7 @@ async function loadReferenceGroups() {
         document.getElementById("referenceMessage");
 
     table.innerHTML = "";
+
     message.textContent = "";
 
     const {
@@ -524,9 +546,11 @@ async function loadReferenceGroups() {
     if (data.length === 0) {
 
         table.innerHTML =
-            `<tr><td colspan="7">
-                No reference groups available.
-             </td></tr>`;
+            `<tr>
+                <td colspan="7">
+                    No reference groups available.
+                </td>
+             </tr>`;
 
         return;
     }
@@ -554,7 +578,7 @@ async function loadReferenceGroups() {
 
 
 // ==========================================
-// ADMIN — USERS
+// ADMIN USERS
 // ==========================================
 
 async function loadAllUsers() {
@@ -576,12 +600,7 @@ async function loadAllUsers() {
 
     if (error) {
 
-        console.error("Users error:", error);
-
-        table.innerHTML =
-            `<tr><td colspan="4">
-                ${escapeHTML(error.message)}
-             </td></tr>`;
+        console.error(error);
 
         return;
     }
@@ -608,7 +627,7 @@ async function loadAllUsers() {
 
 
 // ==========================================
-// ADMIN — ALL SUBJECTS
+// ADMIN SUBJECTS
 // ==========================================
 
 async function loadAllSubjects() {
@@ -630,20 +649,7 @@ async function loadAllSubjects() {
 
     if (error) {
 
-        console.error("All subjects error:", error);
-
-        table.innerHTML =
-            `<tr><td colspan="5">
-                ${escapeHTML(error.message)}
-             </td></tr>`;
-
-        return;
-    }
-
-    if (data.length === 0) {
-
-        table.innerHTML =
-            `<tr><td colspan="5">No subjects.</td></tr>`;
+        console.error(error);
 
         return;
     }
@@ -671,7 +677,7 @@ async function loadAllSubjects() {
 
 
 // ==========================================
-// ADMIN — ALL SCANS
+// ADMIN SCANS
 // ==========================================
 
 async function loadAllScans() {
@@ -693,20 +699,7 @@ async function loadAllScans() {
 
     if (error) {
 
-        console.error("All scans error:", error);
-
-        table.innerHTML =
-            `<tr><td colspan="8">
-                ${escapeHTML(error.message)}
-             </td></tr>`;
-
-        return;
-    }
-
-    if (data.length === 0) {
-
-        table.innerHTML =
-            `<tr><td colspan="8">No scans.</td></tr>`;
+        console.error(error);
 
         return;
     }
@@ -735,7 +728,7 @@ async function loadAllScans() {
 
 
 // ==========================================
-// ADMIN — REFERENCE MEASUREMENTS
+// ADMIN REFERENCE DATA
 // ==========================================
 
 async function loadAdminReferences() {
@@ -757,22 +750,14 @@ async function loadAdminReferences() {
 
     if (error) {
 
-        console.error("Admin reference error:", error);
+        console.error(error);
 
         table.innerHTML =
-            `<tr><td colspan="9">
-                ${escapeHTML(error.message)}
-             </td></tr>`;
-
-        return;
-    }
-
-    if (data.length === 0) {
-
-        table.innerHTML =
-            `<tr><td colspan="9">
-                No reference measurements.
-             </td></tr>`;
+            `<tr>
+                <td colspan="9">
+                    ${escapeHTML(error.message)}
+                </td>
+             </tr>`;
 
         return;
     }
@@ -791,7 +776,6 @@ async function loadAdminReferences() {
             <td>${reference.rms ?? ""}</td>
             <td>${reference.q_factor ?? ""}</td>
             <td>${reference.bandwidth ?? ""}</td>
-
             <td>
                 <button
                     class="danger-btn"
@@ -809,7 +793,7 @@ async function loadAdminReferences() {
 
 
 // ==========================================
-// ADMIN — ADD REFERENCE
+// ADD REFERENCE
 // ==========================================
 
 async function addReference() {
@@ -871,13 +855,21 @@ async function addReference() {
     } = await db
         .from("reference_measurements")
         .insert({
+
             age: age,
+
             gender: gender,
+
             measurement_side: side,
+
             f0: f0,
+
             rms: rms,
+
             q_factor: q,
+
             bandwidth: bandwidth
+
         });
 
     if (error) {
@@ -893,25 +885,13 @@ async function addReference() {
     message.textContent =
         "Reference measurement added.";
 
-    document.getElementById("referenceAge").value = "";
-    document.getElementById("referenceGender").value = "";
-    document.getElementById("referenceSide").value = "";
-    document.getElementById("referenceF0").value = "";
-    document.getElementById("referenceRMS").value = "";
-    document.getElementById("referenceQ").value = "";
-    document.getElementById("referenceBandwidth").value = "";
-
     await loadAdminReferences();
-
-    setTimeout(() => {
-        closeReferenceModal();
-    }, 700);
 
 }
 
 
 // ==========================================
-// ADMIN — DELETE REFERENCE
+// DELETE REFERENCE
 // ==========================================
 
 async function deleteReference(id) {
@@ -940,45 +920,39 @@ async function deleteReference(id) {
 
 
 // ==========================================
-// SUBJECT MODAL
+// MODALS
 // ==========================================
 
 function openSubjectModal() {
 
-    document.getElementById("subjectModal")
-        .style.display = "flex";
+    document.getElementById("subjectModal").style.display = "flex";
 
 }
+
 
 function closeSubjectModal() {
 
-    document.getElementById("subjectModal")
-        .style.display = "none";
+    document.getElementById("subjectModal").style.display = "none";
 
 }
 
-
-// ==========================================
-// REFERENCE MODAL
-// ==========================================
 
 function openReferenceModal() {
 
-    document.getElementById("referenceModal")
-        .style.display = "flex";
+    document.getElementById("referenceModal").style.display = "flex";
 
 }
 
+
 function closeReferenceModal() {
 
-    document.getElementById("referenceModal")
-        .style.display = "none";
+    document.getElementById("referenceModal").style.display = "none";
 
 }
 
 
 // ==========================================
-// UTILITY FUNCTIONS
+// UTILITIES
 // ==========================================
 
 function formatDate(date) {
@@ -988,12 +962,16 @@ function formatDate(date) {
     }
 
     return new Date(date).toLocaleString();
+
 }
 
 
 function escapeHTML(value) {
 
-    if (value === null || value === undefined) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
         return "";
     }
 
@@ -1003,11 +981,12 @@ function escapeHTML(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+
 }
 
 
 // ==========================================
-// AUTH STATE LISTENER
+// AUTH STATE
 // ==========================================
 
 db.auth.onAuthStateChange(
@@ -1020,7 +999,6 @@ db.auth.onAuthStateChange(
         } else {
 
             currentUser = null;
-            currentProfile = null;
 
         }
 
