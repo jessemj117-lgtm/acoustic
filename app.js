@@ -1765,25 +1765,38 @@ function scrollToReference() {
 async function logout() {
 
     try {
-
         await supabaseClient.auth.signOut();
-
     } catch (err) {
-
-        console.error(
-            "Logout error:",
-            err
-        );
+        console.error("Logout error:", err);
     }
 
+    // Clear login fields
+    const emailField = document.getElementById("loginEmail");
+    const passwordField = document.getElementById("loginPassword");
 
+    if (emailField) {
+        emailField.value = "";
+    }
+
+    if (passwordField) {
+        passwordField.value = "";
+    }
+
+    // Clear messages
+    const loginMessage = document.getElementById("loginMessage");
+
+    if (loginMessage) {
+        loginMessage.textContent = "";
+    }
+
+    // Reset application state
     window.currentUser = null;
     window.currentProfile = null;
+    window.currentPatient = null;
 
+    // Return to login screen
     showLogin();
 }
-
-
 // ============================================================
 // SCAN TABLE
 // ============================================================
