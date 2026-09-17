@@ -1,33 +1,29 @@
 // ============================================================
-// ACOUSTIC BONE SCANNER
-// GitHub Pages + Supabase
-//
-// ACCESS STRUCTURE
+// GROUP 4 ACOUSTIC BONE SCANNER
+// APP.JS
+// Admin + Operator Login
+// Patient Access using Linking Code
+// ============================================================
+
 // ------------------------------------------------------------
-// ADMIN     -> Login -> Full system access
-// OPERATOR  -> Login -> Patients + Scans + Reference viewing
-// PATIENT   -> No login -> 6-digit linking code -> Own results
-// ============================================================
+// SUPABASE
+// ------------------------------------------------------------
 
+// KEEP YOUR EXISTING SUPABASE URL AND KEY HERE.
+// Do NOT paste them into chat.
+//
+// Example:
+//
+// const SUPABASE_URL = "YOUR_EXISTING_URL";
+// const SUPABASE_KEY = "YOUR_EXISTING_KEY";
 
-// ============================================================
-// SUPABASE CONFIG
-// ============================================================
+const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
-const SUPABASE_URL =
-    "https://ropiudyalwarmowaiugu.supabase.co";
-
-const SUPABASE_KEY =
-    "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
-
-const supabaseClient =
-    supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
-
-const SITE_URL =
-    "https://jessemj117-lgtm.github.io/acoustic-bone-scanner/";
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
 
 
 // ============================================================
@@ -40,63 +36,123 @@ window.currentPatient = null;
 
 
 // ============================================================
-// PAGE CONTROL
+// DOM HELPERS
+// ============================================================
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+function showElement(id) {
+    const el = $(id);
+
+    if (el) {
+        el.classList.remove("hidden");
+    }
+}
+
+
+function hideElement(id) {
+    const el = $(id);
+
+    if (el) {
+        el.classList.add("hidden");
+    }
+}
+
+
+function setMessage(id, message, type = "error") {
+    const el = $(id);
+
+    if (!el) {
+        console.error(message);
+        return;
+    }
+
+    el.textContent = message;
+    el.className = "message " + type;
+}
+
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    console.log("Acoustic Bone Scanner starting...");
+
+    try {
+
+        const {
+            data: { session },
+            error
+        } = await supabaseClient.auth.getSession();
+
+        if (error) {
+            console.error("Session error:", error);
+            showLogin();
+            return;
+        }
+
+        if (session && session.user) {
+
+            console.log("Existing session found.");
+
+            window.currentUser = session.user;
+
+            await loadDashboard();
+
+        } else {
+
+            console.log("No active session.");
+
+            showLogin();
+
+        }
+
+    } catch (err) {
+
+        console.error("Initialization error:", err);
+
+        showLogin();
+
+    }
+});
+
+
+// ============================================================
+// LOGIN SCREEN
 // ============================================================
 
 function showLogin() {
 
-    const login =
-        document.getElementById("loginScreen");
+    hideElement("dashboard");
+    hideElement("patientResultScreen");
 
-    const dashboard =
-        document.getElementById("dashboard");
+    showElement("loginScreen");
 
-    const patientResults =
-        document.getElementById("patientResultScreen");
-
-    if (login)
-        login.classList.remove("hidden");
-
-    if (dashboard)
-        dashboard.classList.add("hidden");
-
-    if (patientResults)
-        patientResults.classList.add("hidden");
-
-    window.currentUser = null;
-    window.currentProfile = null;
+    hideElement("adminDashboard");
+    hideElement("operatorDashboard");
 }
 
 
 function showDashboard() {
 
-    document
-        .getElementById("loginScreen")
-        ?.classList.add("hidden");
+    hideElement("loginScreen");
+    hideElement("patientResultScreen");
 
-    document
-        .getElementById("patientResultScreen")
-        ?.classList.add("hidden");
-
-    document
-        .getElementById("dashboard")
-        ?.classList.remove("hidden");
+    showElement("dashboard");
 }
 
 
 function showPatientResults() {
 
-    document
-        .getElementById("loginScreen")
-        ?.classList.add("hidden");
+    hideElement("loginScreen");
+    hideElement("dashboard");
 
-    document
-        .getElementById("dashboard")
-        ?.classList.add("hidden");
-
-    document
-        .getElementById("patientResultScreen")
-        ?.classList.remove("hidden");
+    showElement("patientResultScreen");
 }
 
 
@@ -106,94 +162,72 @@ function showPatientResults() {
 
 async function login() {
 
-    const email =
-        document
-            .getElementById("loginEmail")
-            .value
-            .trim();
-
-    const password =
-        document
-            .getElementById("loginPassword")
-            .value;
-
-    const message =
-        document.getElementById("loginMessage");
+    const email = $("loginEmail").value.trim();
+    const password = $("loginPassword").value;
 
     if (!email || !password) {
 
-        message.textContent =
-            "Please enter email and password.";
+        setMessage(
+            "loginMessage",
+            "Please enter your email and password."
+        );
 
         return;
     }
 
-    message.textContent =
-        "Signing in...";
+    setMessage(
+        "loginMessage",
+        "Logging in...",
+        "success"
+    );
 
     try {
 
-        const { data, error } =
-            await supabaseClient.auth.signInWithPassword({
+        const {
+            data,
+            error
+        } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
 
-                email: email,
-                password: password
+        if (error) {
 
-            });
+            console.error("Login error:", error);
 
-        if (error)
-            throw error;
-
-        if (!data.user) {
-
-            throw new Error(
-                "Login failed. User not found."
+            setMessage(
+                "loginMessage",
+                error.message
             );
 
+            return;
         }
 
-        message.textContent = "";
+        if (!data || !data.user) {
+
+            setMessage(
+                "loginMessage",
+                "Login failed. No user session was returned."
+            );
+
+            return;
+        }
+
+        window.currentUser = data.user;
+
+        console.log("Login successful:", data.user.email);
 
         await loadDashboard();
 
-    }
-    catch (error) {
+    } catch (err) {
 
-        console.error(
-            "Login error:",
-            error
+        console.error("Login exception:", err);
+
+        setMessage(
+            "loginMessage",
+            "Unexpected login error: " + err.message
         );
-
-        message.textContent =
-            error.message ||
-            "Login failed.";
-
     }
-
-}
-
-
-// ============================================================
-// LOGOUT
-// ============================================================
-
-async function logout() {
-
-    try {
-
-        await supabaseClient.auth.signOut();
-
-    }
-    catch (error) {
-
-        console.error(
-            "Logout error:",
-            error
-        );
-
-    }
-
-    showLogin();
 }
 
 
@@ -203,101 +237,163 @@ async function logout() {
 
 async function loadDashboard() {
 
-    const {
-        data: { session }
-    } =
-        await supabaseClient.auth.getSession();
+    console.log("Loading dashboard...");
 
-    if (!session) {
+    try {
 
-        showLogin();
+        if (!window.currentUser) {
 
-        return;
+            const {
+                data: { user }
+            } = await supabaseClient.auth.getUser();
+
+            if (!user) {
+
+                console.log("No authenticated user.");
+
+                showLogin();
+
+                return;
+            }
+
+            window.currentUser = user;
+        }
+
+
+        // ----------------------------------------------------
+        // LOAD PROFILE
+        // ----------------------------------------------------
+
+        const profile = await loadProfile();
+
+        if (!profile) {
+
+            console.error("No profile found for user.");
+
+            showDashboard();
+
+            $("userInfo").textContent =
+                window.currentUser.email + " | Profile not found";
+
+            hideElement("adminDashboard");
+            hideElement("operatorDashboard");
+
+            alert(
+                "Login successful, but no profile was found for this account.\n\n" +
+                "Check the public.profiles table in Supabase and make sure " +
+                "this user's ID exists there."
+            );
+
+            return;
+        }
+
+
+        window.currentProfile = profile;
+
+        console.log("Profile loaded:", profile);
+
+
+        // ----------------------------------------------------
+        // SHOW COMMON DASHBOARD
+        // ----------------------------------------------------
+
+        showDashboard();
+
+        hideElement("adminDashboard");
+        hideElement("operatorDashboard");
+
+
+        const displayName =
+            profile.full_name ||
+            window.currentUser.email;
+
+
+        $("userInfo").textContent =
+            displayName +
+            " | " +
+            String(profile.role).toUpperCase();
+
+
+        // ----------------------------------------------------
+        // ROLE ROUTING
+        // ----------------------------------------------------
+
+        if (profile.role === "admin") {
+
+            console.log("Admin dashboard.");
+
+            showElement("adminDashboard");
+
+            await loadAdminDashboard();
+
+        }
+
+        else if (profile.role === "operator") {
+
+            console.log("Operator dashboard.");
+
+            showElement("operatorDashboard");
+
+            await loadOperatorDashboard();
+
+        }
+
+        else {
+
+            console.error(
+                "Unknown profile role:",
+                profile.role
+            );
+
+            await supabaseClient.auth.signOut();
+
+            window.currentUser = null;
+            window.currentProfile = null;
+
+            showLogin();
+
+            setMessage(
+                "loginMessage",
+                "This account does not have a valid admin/operator role."
+            );
+        }
+
+    } catch (err) {
+
+        console.error(
+            "DASHBOARD ERROR:",
+            err
+        );
+
+        showDashboard();
+
+        hideElement("adminDashboard");
+        hideElement("operatorDashboard");
+
+        const dashboardContainer =
+            document.querySelector(".dashboard-container");
+
+        if (dashboardContainer) {
+
+            const errorBox =
+                document.createElement("div");
+
+            errorBox.className = "card";
+
+            errorBox.innerHTML = `
+                <h2>Dashboard Error</h2>
+                <p class="error">
+                    ${escapeHTML(err.message)}
+                </p>
+                <p>
+                    Open the browser console (F12 → Console)
+                    for more details.
+                </p>
+            `;
+
+            dashboardContainer.prepend(errorBox);
+        }
     }
-
-    showDashboard();
-
-    await loadProfile();
-
-    if (!window.currentProfile) {
-
-        await supabaseClient.auth.signOut();
-
-        showLogin();
-
-        return;
-    }
-
-    const role =
-        window.currentProfile.role;
-
-    console.log(
-        "Logged-in role:",
-        role
-    );
-
-
-    // Hide both dashboards first
-
-    document
-        .getElementById("adminDashboard")
-        ?.classList.add("hidden");
-
-    document
-        .getElementById("operatorDashboard")
-        ?.classList.add("hidden");
-
-
-    // --------------------------------------------------------
-    // ADMIN
-    // --------------------------------------------------------
-
-    if (role === "admin") {
-
-        document
-            .getElementById("adminDashboard")
-            ?.classList.remove("hidden");
-
-        await loadAdminPanel();
-
-        return;
-    }
-
-
-    // --------------------------------------------------------
-    // OPERATOR
-    // --------------------------------------------------------
-
-    if (role === "operator") {
-
-        document
-            .getElementById("operatorDashboard")
-            ?.classList.remove("hidden");
-
-        await loadSubjects();
-        await loadScans();
-        await loadReferenceGroups();
-
-        return;
-    }
-
-
-    // --------------------------------------------------------
-    // UNKNOWN ROLE
-    // --------------------------------------------------------
-
-    console.error(
-        "Unknown account role:",
-        role
-    );
-
-    alert(
-        "Your account does not have a valid system role."
-    );
-
-    await supabaseClient.auth.signOut();
-
-    showLogin();
 }
 
 
@@ -307,180 +403,709 @@ async function loadDashboard() {
 
 async function loadProfile() {
 
-    try {
-
-        const {
-            data: { user }
-        } =
-            await supabaseClient.auth.getUser();
-
-        if (!user)
-            return;
-
-        const { data, error } =
-            await supabaseClient
-                .from("profiles")
-                .select("*")
-                .eq("id", user.id)
-                .single();
-
-        if (error)
-            throw error;
-
-        window.currentUser =
-            user;
-
-        window.currentProfile =
-            data;
-
-
-        const name =
-            data.full_name ||
-            user.email ||
-            "User";
-
-        const userInfo =
-            document.getElementById("userInfo");
-
-        if (userInfo) {
-
-            userInfo.textContent =
-                `${name} (${data.role})`;
-
-        }
-
+    if (!window.currentUser) {
+        return null;
     }
-    catch (error) {
+
+    console.log(
+        "Loading profile for:",
+        window.currentUser.id
+    );
+
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .eq("id", window.currentUser.id)
+        .maybeSingle();
+
+
+    if (error) {
 
         console.error(
-            "Profile loading error:",
+            "Profile query error:",
             error
         );
 
-        window.currentUser = null;
-        window.currentProfile = null;
+        throw new Error(
+            "Unable to load profile: " +
+            error.message
+        );
     }
+
+
+    if (!data) {
+
+        console.warn(
+            "No profile row found."
+        );
+
+        return null;
+    }
+
+
+    return data;
 }
 
 
 // ============================================================
-// LOAD OPERATOR PATIENTS
+// OPERATOR DASHBOARD
+// ============================================================
+
+async function loadOperatorDashboard() {
+
+    console.log("Loading operator data...");
+
+    await loadSubjects();
+
+    await loadScans();
+
+    await loadReferenceGroups();
+
+}
+
+
+// ============================================================
+// ADMIN DASHBOARD
+// ============================================================
+
+async function loadAdminDashboard() {
+
+    console.log("Loading admin data...");
+
+    await loadAllUsers();
+
+    await loadAllSubjects();
+
+    await loadAllScans();
+
+    await loadAdminReferences();
+
+}
+
+
+// ============================================================
+// LOAD OPERATOR'S PATIENTS
 // ============================================================
 
 async function loadSubjects() {
 
-    const container =
-        document.getElementById("subjectsList");
-
-    if (!container)
-        return;
-
-
-    if (
-        !window.currentUser ||
-        window.currentProfile?.role !== "operator"
-    ) {
-
-        container.innerHTML =
-            "<p>Patient list unavailable.</p>";
-
+    if (!window.currentUser) {
         return;
     }
 
 
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("subjects")
-                .select("*")
-                .eq(
-                    "user_id",
-                    window.currentUser.id
-                )
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-        if (error)
-            throw error;
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("subjects")
+        .select("*")
+        .eq("user_id", window.currentUser.id)
+        .order("created_at", {
+            ascending: false
+        });
 
 
-        if (!data || data.length === 0) {
-
-            container.innerHTML =
-                "<p>No patients registered yet.</p>";
-
-            return;
-        }
-
-
-        container.innerHTML =
-            data.map(subject => `
-
-                <div class="patient-card">
-
-                    <strong>
-                        ${escapeHTML(
-                            subject.patient_id ||
-                            subject.subject_id ||
-                            "-"
-                        )}
-                    </strong>
-
-                    <p>
-                        Name:
-                        ${escapeHTML(
-                            subject.name || "-"
-                        )}
-                    </p>
-
-                    <p>
-                        Age:
-                        ${subject.age ?? "-"}
-                    </p>
-
-                    <p>
-                        Gender:
-                        ${escapeHTML(
-                            subject.gender || "-"
-                        )}
-                    </p>
-
-                    <div class="linking-code">
-                        Patient Code:
-                        ${escapeHTML(
-                            subject.linking_code || "-"
-                        )}
-                    </div>
-
-                </div>
-
-            `).join("");
-
-    }
-    catch (error) {
+    if (error) {
 
         console.error(
-            "Subjects loading error:",
+            "Subjects error:",
             error
         );
 
-        container.innerHTML =
+        $("subjectsList").innerHTML =
             `<p class="error">
-                Error loading patients:
-                ${escapeHTML(error.message)}
+                Unable to load patients: ${escapeHTML(error.message)}
             </p>`;
+
+        return;
     }
+
+
+    const container = $("subjectsList");
+
+
+    if (!data || data.length === 0) {
+
+        container.innerHTML =
+            `<p>No patients registered yet.</p>`;
+
+        return;
+    }
+
+
+    container.innerHTML = data.map(patient => {
+
+        return `
+            <div class="patient-card">
+
+                <strong>
+                    ${escapeHTML(patient.name || "Unnamed Patient")}
+                </strong>
+
+                <p>
+                    Patient ID:
+                    ${escapeHTML(
+                        patient.patient_id ||
+                        patient.subject_id ||
+                        "-"
+                    )}
+                </p>
+
+                <p>
+                    Age:
+                    ${patient.age ?? "-"}
+                    |
+                    Gender:
+                    ${escapeHTML(patient.gender || "-")}
+                </p>
+
+                <span class="linking-code">
+                    ${escapeHTML(patient.linking_code || "-")}
+                </span>
+
+            </div>
+        `;
+
+    }).join("");
 }
 
 
 // ============================================================
-// GENERATE PATIENT ID
+// LOAD OPERATOR SCANS
 // ============================================================
+
+async function loadScans() {
+
+    if (!window.currentUser) {
+        return;
+    }
+
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("scan_measurements")
+        .select(`
+            *,
+            subjects (
+                name,
+                patient_id
+            )
+        `)
+        .eq("user_id", window.currentUser.id)
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Scan loading error:",
+            error
+        );
+
+        $("scansList").innerHTML =
+            `<p class="error">
+                Unable to load scans: ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    renderScanTable(
+        $("scansList"),
+        data || []
+    );
+}
+
+
+// ============================================================
+// LOAD REFERENCE GROUPS
+// ============================================================
+
+async function loadReferenceGroups() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("reference_groups")
+        .select("*")
+        .order("age_min", {
+            ascending: true
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Reference group error:",
+            error
+        );
+
+        $("referenceList").innerHTML =
+            `<p class="error">
+                Unable to load reference database:
+                ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    const container =
+        $("referenceList");
+
+
+    if (!data || data.length === 0) {
+
+        container.innerHTML =
+            `<p>No reference groups available.</p>`;
+
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Age Range</th>
+                    <th>Gender</th>
+                    <th>Samples</th>
+                    <th>Mean F₀</th>
+                    <th>SD F₀</th>
+                    <th>Mean RMS</th>
+                    <th>Mean Q</th>
+                    <th>Mean Bandwidth</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${data.map(row => `
+
+                    <tr>
+
+                        <td>
+                            ${row.age_min}–${row.age_max}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(row.gender || "-")}
+                        </td>
+
+                        <td>
+                            ${row.sample_count ?? "-"}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.mean_f0)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.sd_f0)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.mean_rms)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.mean_q_factor)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.mean_bandwidth)}
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+    `;
+}
+
+
+// ============================================================
+// ADMIN USERS
+// ============================================================
+
+async function loadAllUsers() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Admin users error:",
+            error
+        );
+
+        $("adminUsers").innerHTML =
+            `<p class="error">
+                Unable to load users:
+                ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    $("adminUsers").innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${(data || []).map(user => `
+
+                    <tr>
+
+                        <td>
+                            ${escapeHTML(user.full_name || "-")}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(user.email || "-")}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(user.role || "-")}
+                        </td>
+
+                        <td>
+                            ${formatDate(user.created_at)}
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+    `;
+}
+
+
+// ============================================================
+// ADMIN PATIENTS
+// ============================================================
+
+async function loadAllSubjects() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("subjects")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Admin patients error:",
+            error
+        );
+
+        $("adminSubjects").innerHTML =
+            `<p class="error">
+                Unable to load patients:
+                ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    $("adminSubjects").innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Linking Code</th>
+                    <th>Created</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${(data || []).map(patient => `
+
+                    <tr>
+
+                        <td>
+                            ${escapeHTML(
+                                patient.patient_id ||
+                                patient.subject_id ||
+                                "-"
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(patient.name || "-")}
+                        </td>
+
+                        <td>
+                            ${patient.age ?? "-"}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(patient.gender || "-")}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(patient.linking_code || "-")}
+                        </td>
+
+                        <td>
+                            ${formatDate(patient.created_at)}
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+    `;
+}
+
+
+// ============================================================
+// ADMIN SCANS
+// ============================================================
+
+async function loadAllScans() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("scan_measurements")
+        .select(`
+            *,
+            subjects (
+                name,
+                patient_id
+            )
+        `)
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Admin scan error:",
+            error
+        );
+
+        $("adminScans").innerHTML =
+            `<p class="error">
+                Unable to load scans:
+                ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    renderScanTable(
+        $("adminScans"),
+        data || []
+    );
+}
+
+
+// ============================================================
+// ADMIN REFERENCES
+// ============================================================
+
+async function loadAdminReferences() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("reference_measurements")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+
+    if (error) {
+
+        console.error(
+            "Reference measurement error:",
+            error
+        );
+
+        $("adminReferences").innerHTML =
+            `<p class="error">
+                Unable to load reference measurements:
+                ${escapeHTML(error.message)}
+            </p>`;
+
+        return;
+    }
+
+
+    const container =
+        $("adminReferences");
+
+
+    if (!data || data.length === 0) {
+
+        container.innerHTML =
+            `<p>No reference measurements available.</p>`;
+
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Reference ID</th>
+                    <th>Sample ID</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>F₀</th>
+                    <th>RMS</th>
+                    <th>Q</th>
+                    <th>Bandwidth</th>
+                    <th>Side</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${data.map(row => `
+
+                    <tr>
+
+                        <td>
+                            ${escapeHTML(row.reference_id || "-")}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(row.sample_id || "-")}
+                        </td>
+
+                        <td>
+                            ${row.age ?? "-"}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(row.gender || "-")}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.f0)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.rms)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.q_factor)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(row.bandwidth)}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(row.measurement_side || "-")}
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+    `;
+}
+
+
+// ============================================================
+// CREATE PATIENT
+// ============================================================
+
+function openPatientModal() {
+
+    $("patientModal").classList.remove("hidden");
+
+    $("subjectMessage").textContent = "";
+
+    $("createdPatientInfo").classList.add("hidden");
+}
+
+
+function closePatientModal() {
+
+    $("patientModal").classList.add("hidden");
+}
+
 
 function generatePatientID() {
 
@@ -490,13 +1115,9 @@ function generatePatientID() {
             Math.random() * 90000
         );
 
-    return `PAT-${random}`;
+    return "PAT-" + random;
 }
 
-
-// ============================================================
-// GENERATE LINKING CODE
-// ============================================================
 
 function generateLinkingCode() {
 
@@ -509,86 +1130,53 @@ function generateLinkingCode() {
 }
 
 
-// ============================================================
-// CHECK LINKING CODE UNIQUENESS
-// ============================================================
-
 async function generateUniqueLinkingCode() {
 
-    for (let attempt = 0; attempt < 10; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
 
         const code =
             generateLinkingCode();
 
-        const { data, error } =
-            await supabaseClient
-                .from("subjects")
-                .select("id")
-                .eq("linking_code", code)
-                .limit(1);
 
-        if (error)
-            throw error;
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("id")
+            .eq("linking_code", code)
+            .maybeSingle();
 
-        if (!data || data.length === 0) {
+
+        if (error) {
+
+            throw new Error(
+                "Unable to check linking code: " +
+                error.message
+            );
+        }
+
+
+        if (!data) {
 
             return code;
         }
     }
 
+
     throw new Error(
-        "Could not generate a unique patient code. Please try again."
+        "Unable to generate a unique linking code."
     );
 }
 
 
-// ============================================================
-// OPEN PATIENT MODAL
-// ============================================================
-
-function openPatientModal() {
-
-    document
-        .getElementById("patientModal")
-        ?.classList.remove("hidden");
-
-    document
-        .getElementById("subjectMessage")
-        .textContent = "";
-
-    document
-        .getElementById("createdPatientInfo")
-        ?.classList.add("hidden");
-}
-
-
-// ============================================================
-// CLOSE PATIENT MODAL
-// ============================================================
-
-function closePatientModal() {
-
-    document
-        .getElementById("patientModal")
-        ?.classList.add("hidden");
-}
-
-
-// ============================================================
-// ADD PATIENT
-// ============================================================
-
 async function addSubject() {
 
-    if (
-        !window.currentUser ||
-        !window.currentProfile ||
-        !["admin", "operator"]
-            .includes(window.currentProfile.role)
-    ) {
+    if (!window.currentUser) {
 
-        alert(
-            "Only admin or operator accounts can create patients."
+        setMessage(
+            "subjectMessage",
+            "You must be logged in."
         );
 
         return;
@@ -596,48 +1184,31 @@ async function addSubject() {
 
 
     const name =
-        document
-            .getElementById("subjectName")
-            .value
-            .trim();
+        $("subjectName").value.trim();
 
     const age =
-        parseInt(
-            document
-                .getElementById("subjectAge")
-                .value
-        );
+        Number($("subjectAge").value);
 
     const gender =
-        document
-            .getElementById("subjectGender")
-            .value;
-
-    const message =
-        document
-            .getElementById("subjectMessage");
+        $("subjectGender").value;
 
 
     if (!name || !age || !gender) {
 
-        message.textContent =
-            "Please fill in all patient fields.";
+        setMessage(
+            "subjectMessage",
+            "Please enter patient name, age and gender."
+        );
 
         return;
     }
 
 
-    if (age < 1 || age > 120) {
-
-        message.textContent =
-            "Please enter a valid age.";
-
-        return;
-    }
-
-
-    message.textContent =
-        "Creating patient...";
+    setMessage(
+        "subjectMessage",
+        "Creating patient...",
+        "success"
+    );
 
 
     try {
@@ -649,891 +1220,109 @@ async function addSubject() {
             await generateUniqueLinkingCode();
 
 
-        const { data, error } =
-            await supabaseClient
-                .from("subjects")
-                .insert({
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .insert({
 
-                    user_id:
-                        window.currentUser.id,
+                user_id:
+                    window.currentUser.id,
 
-                    subject_id:
-                        patientID,
+                subject_id:
+                    patientID,
 
-                    patient_id:
-                        patientID,
+                patient_id:
+                    patientID,
 
-                    name:
-                        name,
+                name:
+                    name,
 
-                    age:
-                        age,
+                age:
+                    age,
 
-                    gender:
-                        gender,
+                gender:
+                    gender,
 
-                    linking_code:
-                        linkingCode,
+                linking_code:
+                    linkingCode,
 
-                    account_linked:
-                        false
+                account_linked:
+                    false
 
-                })
-                .select()
-                .single();
-
-
-        if (error)
-            throw error;
+            })
+            .select()
+            .single();
 
 
-        message.textContent =
-            "Patient created successfully.";
+        if (error) {
 
-        message.className =
-            "message success";
+            console.error(
+                "Create patient error:",
+                error
+            );
 
+            setMessage(
+                "subjectMessage",
+                error.message
+            );
 
-        const info =
-            document
-                .getElementById(
-                    "createdPatientInfo"
-                );
-
-
-        if (info) {
-
-            info.innerHTML = `
-
-                <strong>
-                    Patient Created
-                </strong>
-
-                <p>
-                    Patient ID:
-                    <strong>
-                        ${escapeHTML(
-                            data.patient_id
-                        )}
-                    </strong>
-                </p>
-
-                <p>
-                    Patient Name:
-                    ${escapeHTML(
-                        data.name
-                    )}
-                </p>
-
-                <p>
-                    Linking Code:
-                    <strong>
-                        ${escapeHTML(
-                            data.linking_code
-                        )}
-                    </strong>
-                </p>
-
-                <p>
-                    Give this linking code to the patient.
-                    It is required to view their results.
-                </p>
-
-            `;
-
-            info.classList.remove("hidden");
+            return;
         }
 
 
-        // Clear form
+        $("createdPatientInfo").innerHTML = `
 
-        document
-            .getElementById("subjectName")
-            .value = "";
+            <strong>Patient Created Successfully</strong>
 
-        document
-            .getElementById("subjectAge")
-            .value = "";
+            <p>
+                Patient ID:
+                <strong>
+                    ${escapeHTML(data.patient_id)}
+                </strong>
+            </p>
 
-        document
-            .getElementById("subjectGender")
-            .value = "";
+            <p>
+                Patient Linking Code:
+                <span class="linking-code">
+                    ${escapeHTML(data.linking_code)}
+                </span>
+            </p>
+
+            <p>
+                Give this linking code to the patient.
+                It is used to access their scan results.
+            </p>
+
+        `;
+
+
+        $("createdPatientInfo")
+            .classList.remove("hidden");
+
+
+        $("subjectMessage").textContent = "";
+
+
+        $("subjectName").value = "";
+        $("subjectAge").value = "";
+        $("subjectGender").value = "";
 
 
         await loadSubjects();
 
-
-        if (
-            window.currentProfile.role === "admin"
-        ) {
-
-            await loadAllSubjects();
-        }
-
-    }
-    catch (error) {
+    } catch (err) {
 
         console.error(
-            "Add patient error:",
-            error
+            "Create patient exception:",
+            err
         );
 
-        message.className =
-            "message";
-
-        message.textContent =
-            error.message ||
-            "Could not create patient.";
-    }
-}
-
-
-// ============================================================
-// LOAD OPERATOR SCANS
-// ============================================================
-
-async function loadScans() {
-
-    const container =
-        document.getElementById("scansList");
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("scan_measurements")
-                .select("*")
-                .eq(
-                    "user_id",
-                    window.currentUser.id
-                )
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        if (!data || data.length === 0) {
-
-            container.innerHTML =
-                "<p>No scans available.</p>";
-
-            return;
-        }
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Scan ID</th>
-                        <th>Patient</th>
-                        <th>F₀</th>
-                        <th>RMS</th>
-                        <th>Q</th>
-                        <th>Bandwidth</th>
-                        <th>Date</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(scan => `
-
-                        <tr>
-
-                            <td>
-                                ${escapeHTML(
-                                    scan.scan_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    scan.subject_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${scan.f0 ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.rms ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.q_factor ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.bandwidth ?? "-"}
-                            </td>
-
-                            <td>
-                                ${formatDate(
-                                    scan.created_at
-                                )}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Scan loading error:",
-            error
+        setMessage(
+            "subjectMessage",
+            err.message
         );
-
-        container.innerHTML =
-            `<p class="error">
-                Error loading scans:
-                ${escapeHTML(error.message)}
-            </p>`;
-    }
-}
-
-
-// ============================================================
-// LOAD REFERENCE GROUPS
-// ============================================================
-
-async function loadReferenceGroups() {
-
-    const container =
-        document.getElementById(
-            "referenceList"
-        );
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("reference_groups")
-                .select("*")
-                .order(
-                    "age_min",
-                    {
-                        ascending: true
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        if (!data || data.length === 0) {
-
-            container.innerHTML =
-                "<p>No reference groups available.</p>";
-
-            return;
-        }
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Age Range</th>
-                        <th>Gender</th>
-                        <th>Samples</th>
-                        <th>Mean F₀</th>
-                        <th>SD F₀</th>
-                        <th>Mean RMS</th>
-                        <th>Mean Q</th>
-                        <th>Mean Bandwidth</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(group => `
-
-                        <tr>
-
-                            <td>
-                                ${group.age_min}
-                                -
-                                ${group.age_max}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    group.gender || "All"
-                                )}
-                            </td>
-
-                            <td>
-                                ${group.sample_count ?? 0}
-                            </td>
-
-                            <td>
-                                ${group.mean_f0 ?? "-"}
-                            </td>
-
-                            <td>
-                                ${group.sd_f0 ?? "-"}
-                            </td>
-
-                            <td>
-                                ${group.mean_rms ?? "-"}
-                            </td>
-
-                            <td>
-                                ${group.mean_q_factor ?? "-"}
-                            </td>
-
-                            <td>
-                                ${group.mean_bandwidth ?? "-"}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Reference loading error:",
-            error
-        );
-
-        container.innerHTML =
-            `<p class="error">
-                Error loading reference data:
-                ${escapeHTML(error.message)}
-            </p>`;
-    }
-}
-
-
-// ============================================================
-// ADMIN PANEL
-// ============================================================
-
-async function loadAdminPanel() {
-
-    if (
-        !window.currentProfile ||
-        window.currentProfile.role !== "admin"
-    ) {
-
-        return;
-    }
-
-
-    await loadAllUsers();
-    await loadAllSubjects();
-    await loadAllScans();
-    await loadReferenceMeasurements();
-
-}
-
-
-// ============================================================
-// ADMIN - USERS
-// ============================================================
-
-async function loadAllUsers() {
-
-    const container =
-        document.getElementById(
-            "adminUsers"
-        );
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("profiles")
-                .select("*")
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Email</th>
-                        <th>Name</th>
-                        <th>Role</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(user => `
-
-                        <tr>
-
-                            <td>
-                                ${escapeHTML(
-                                    user.email || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    user.full_name || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    user.role || "-"
-                                )}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Admin users error:",
-            error
-        );
-
-        container.innerHTML =
-            `<p class="error">
-                ${escapeHTML(
-                    error.message
-                )}
-            </p>`;
-    }
-}
-
-
-// ============================================================
-// ADMIN - ALL PATIENTS
-// ============================================================
-
-async function loadAllSubjects() {
-
-    const container =
-        document.getElementById(
-            "adminSubjects"
-        );
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("subjects")
-                .select("*")
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Patient ID</th>
-                        <th>Name</th>
-                        <th>Age</th>
-                        <th>Gender</th>
-                        <th>Operator</th>
-                        <th>Linking Code</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(subject => `
-
-                        <tr>
-
-                            <td>
-                                ${escapeHTML(
-                                    subject.patient_id ||
-                                    subject.subject_id ||
-                                    "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    subject.name || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${subject.age ?? "-"}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    subject.gender || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    subject.user_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    subject.linking_code || "-"
-                                )}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Admin patients error:",
-            error
-        );
-
-        container.innerHTML =
-            `<p class="error">
-                ${escapeHTML(
-                    error.message
-                )}
-            </p>`;
-    }
-}
-
-
-// ============================================================
-// ADMIN - ALL SCANS
-// ============================================================
-
-async function loadAllScans() {
-
-    const container =
-        document.getElementById(
-            "adminScans"
-        );
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("scan_measurements")
-                .select("*")
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Scan ID</th>
-                        <th>Operator</th>
-                        <th>Patient</th>
-                        <th>F₀</th>
-                        <th>RMS</th>
-                        <th>Q</th>
-                        <th>Bandwidth</th>
-                        <th>Date</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(scan => `
-
-                        <tr>
-
-                            <td>
-                                ${escapeHTML(
-                                    scan.scan_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    scan.user_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    scan.subject_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${scan.f0 ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.rms ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.q_factor ?? "-"}
-                            </td>
-
-                            <td>
-                                ${scan.bandwidth ?? "-"}
-                            </td>
-
-                            <td>
-                                ${formatDate(
-                                    scan.created_at
-                                )}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Admin scans error:",
-            error
-        );
-
-        container.innerHTML =
-            `<p class="error">
-                ${escapeHTML(
-                    error.message
-                )}
-            </p>`;
-    }
-}
-
-
-// ============================================================
-// ADMIN - REFERENCE MEASUREMENTS
-// ============================================================
-
-async function loadReferenceMeasurements() {
-
-    const container =
-        document.getElementById(
-            "adminReferences"
-        );
-
-    if (!container)
-        return;
-
-
-    try {
-
-        const { data, error } =
-            await supabaseClient
-                .from("reference_measurements")
-                .select("*")
-                .order(
-                    "created_at",
-                    {
-                        ascending: false
-                    }
-                );
-
-
-        if (error)
-            throw error;
-
-
-        container.innerHTML = `
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>Reference ID</th>
-                        <th>Age</th>
-                        <th>Gender</th>
-                        <th>F₀</th>
-                        <th>RMS</th>
-                        <th>Q</th>
-                        <th>Bandwidth</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    ${data.map(ref => `
-
-                        <tr>
-
-                            <td>
-                                ${escapeHTML(
-                                    ref.reference_id || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${ref.age ?? "-"}
-                            </td>
-
-                            <td>
-                                ${escapeHTML(
-                                    ref.gender || "-"
-                                )}
-                            </td>
-
-                            <td>
-                                ${ref.f0 ?? "-"}
-                            </td>
-
-                            <td>
-                                ${ref.rms ?? "-"}
-                            </td>
-
-                            <td>
-                                ${ref.q_factor ?? "-"}
-                            </td>
-
-                            <td>
-                                ${ref.bandwidth ?? "-"}
-                            </td>
-
-                        </tr>
-
-                    `).join("")}
-
-                </tbody>
-
-            </table>
-        `;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Admin reference error:",
-            error
-        );
-
-        container.innerHTML =
-            `<p class="error">
-                ${escapeHTML(
-                    error.message
-                )}
-            </p>`;
     }
 }
 
@@ -1549,8 +1338,9 @@ async function addReference() {
         window.currentProfile.role !== "admin"
     ) {
 
-        alert(
-            "Only administrators can add reference data."
+        setMessage(
+            "referenceMessage",
+            "Only an administrator can add reference data."
         );
 
         return;
@@ -1558,57 +1348,25 @@ async function addReference() {
 
 
     const referenceId =
-        document
-            .getElementById("referenceId")
-            .value
-            .trim();
+        $("referenceId").value.trim();
 
     const age =
-        parseInt(
-            document
-                .getElementById("referenceAge")
-                .value
-        );
+        Number($("referenceAge").value);
 
     const gender =
-        document
-            .getElementById("referenceGender")
-            .value;
+        $("referenceGender").value;
 
     const f0 =
-        parseFloat(
-            document
-                .getElementById("referenceF0")
-                .value
-        );
+        Number($("referenceF0").value);
 
     const rms =
-        parseFloat(
-            document
-                .getElementById("referenceRMS")
-                .value
-        );
+        Number($("referenceRMS").value);
 
-    const q =
-        parseFloat(
-            document
-                .getElementById("referenceQ")
-                .value
-        );
+    const qFactor =
+        Number($("referenceQ").value);
 
     const bandwidth =
-        parseFloat(
-            document
-                .getElementById(
-                    "referenceBandwidth"
-                )
-                .value
-        );
-
-    const message =
-        document.getElementById(
-            "referenceMessage"
-        );
+        Number($("referenceBandwidth").value);
 
 
     if (
@@ -1617,81 +1375,92 @@ async function addReference() {
         !gender ||
         !Number.isFinite(f0) ||
         !Number.isFinite(rms) ||
-        !Number.isFinite(q) ||
+        !Number.isFinite(qFactor) ||
         !Number.isFinite(bandwidth)
     ) {
 
-        message.textContent =
-            "Please fill in all reference fields.";
+        setMessage(
+            "referenceMessage",
+            "Please fill in all reference measurement fields."
+        );
 
         return;
     }
 
 
-    message.textContent =
-        "Adding reference measurement...";
+    setMessage(
+        "referenceMessage",
+        "Adding reference measurement...",
+        "success"
+    );
 
 
-    try {
+    const {
+        error
+    } = await supabaseClient
+        .from("reference_measurements")
+        .insert({
 
-        const { error } =
-            await supabaseClient
-                .from("reference_measurements")
-                .insert({
+            reference_id:
+                referenceId,
 
-                    reference_id:
-                        referenceId,
+            sample_id:
+                referenceId,
 
-                    age:
-                        age,
+            age:
+                age,
 
-                    gender:
-                        gender,
+            gender:
+                gender,
 
-                    f0:
-                        f0,
+            f0:
+                f0,
 
-                    rms:
-                        rms,
+            rms:
+                rms,
 
-                    q_factor:
-                        q,
+            q_factor:
+                qFactor,
 
-                    bandwidth:
-                        bandwidth
+            bandwidth:
+                bandwidth
 
-                });
-
-
-        if (error)
-            throw error;
+        });
 
 
-        message.className =
-            "message success";
-
-        message.textContent =
-            "Reference measurement added successfully.";
-
-
-        await loadReferenceMeasurements();
-        await loadReferenceGroups();
-
-    }
-    catch (error) {
+    if (error) {
 
         console.error(
             "Add reference error:",
             error
         );
 
-        message.className =
-            "message";
+        setMessage(
+            "referenceMessage",
+            error.message
+        );
 
-        message.textContent =
-            error.message ||
-            "Could not add reference measurement.";
+        return;
     }
+
+
+    setMessage(
+        "referenceMessage",
+        "Reference measurement added successfully.",
+        "success"
+    );
+
+
+    $("referenceId").value = "";
+    $("referenceAge").value = "";
+    $("referenceGender").value = "";
+    $("referenceF0").value = "";
+    $("referenceRMS").value = "";
+    $("referenceQ").value = "";
+    $("referenceBandwidth").value = "";
+
+
+    await loadAdminReferences();
 }
 
 
@@ -1701,75 +1470,84 @@ async function addReference() {
 
 async function patientAccess() {
 
-    const input =
-        document.getElementById(
-            "patientLinkingCode"
-        );
-
-    const message =
-        document.getElementById(
-            "patientAccessMessage"
-        );
-
-
     const code =
-        input.value.trim();
+        $("patientLinkingCode")
+            .value
+            .trim();
 
 
     if (!/^\d{6}$/.test(code)) {
 
-        message.textContent =
-            "Please enter a valid 6-digit code.";
+        setMessage(
+            "patientAccessMessage",
+            "Please enter a valid 6-digit linking code."
+        );
 
         return;
     }
 
 
-    message.textContent =
-        "Finding your records...";
+    setMessage(
+        "patientAccessMessage",
+        "Searching for your results...",
+        "success"
+    );
 
 
     try {
 
-        const { data, error } =
-            await supabaseClient.rpc(
-                "get_patient_results",
-                {
-                    p_linking_code: code
-                }
+        const {
+            data,
+            error
+        } = await supabaseClient.rpc(
+            "get_patient_results",
+            {
+                p_linking_code: code
+            }
+        );
+
+
+        if (error) {
+
+            console.error(
+                "Patient RPC error:",
+                error
             );
 
-
-        if (error)
-            throw error;
-
-
-        if (!data || data.length === 0) {
-
-            message.textContent =
-                "No patient record found for this code.";
+            setMessage(
+                "patientAccessMessage",
+                "Unable to retrieve results: " +
+                error.message
+            );
 
             return;
         }
 
 
-        window.currentPatient =
-            data;
+        if (!data || data.length === 0) {
+
+            setMessage(
+                "patientAccessMessage",
+                "No patient was found for this linking code."
+            );
+
+            return;
+        }
 
 
         displayPatientResults(data);
 
-    }
-    catch (error) {
+    } catch (err) {
 
         console.error(
-            "Patient access error:",
-            error
+            "Patient access exception:",
+            err
         );
 
-        message.textContent =
-            error.message ||
-            "Unable to retrieve patient records.";
+        setMessage(
+            "patientAccessMessage",
+            err.message
+        );
     }
 }
 
@@ -1780,219 +1558,156 @@ async function patientAccess() {
 
 function displayPatientResults(data) {
 
-    if (!data || data.length === 0)
-        return;
-
-
     const first =
         data[0];
 
 
-    const details =
-        document.getElementById(
-            "patientDetails"
+    showPatientResults();
+
+
+    $("patientDetails").innerHTML = `
+
+        <div class="card">
+
+            <h2>
+                Patient Details
+            </h2>
+
+            <p>
+                <strong>Patient ID:</strong>
+                ${escapeHTML(first.patient_id || "-")}
+            </p>
+
+            <p>
+                <strong>Name:</strong>
+                ${escapeHTML(first.patient_name || "-")}
+            </p>
+
+            <p>
+                <strong>Age:</strong>
+                ${first.patient_age ?? "-"}
+            </p>
+
+            <p>
+                <strong>Gender:</strong>
+                ${escapeHTML(first.patient_gender || "-")}
+            </p>
+
+        </div>
+    `;
+
+
+    const scans =
+        data.filter(row =>
+            row.scan_id
         );
 
 
-    const results =
-        document.getElementById(
-            "patientScanResults"
-        );
+    if (scans.length === 0) {
 
-
-    if (details) {
-
-        details.innerHTML = `
+        $("patientScanResults").innerHTML = `
 
             <div class="card">
 
                 <h3>
-                    Patient Details
+                    No Scan Results Yet
                 </h3>
 
-                <div class="result-grid">
+                <p>
+                    Your patient record exists, but
+                    no acoustic scan has been recorded yet.
+                </p>
 
-                    <div class="result-item">
+            </div>
+        `;
 
-                        <strong>
-                            Patient ID
-                        </strong>
+        return;
+    }
 
-                        ${escapeHTML(
-                            first.patient_id || "-"
-                        )}
 
-                    </div>
+    $("patientScanResults").innerHTML = `
 
-                    <div class="result-item">
+        <div class="card">
 
-                        <strong>
-                            Name
-                        </strong>
+            <h2>
+                Scan History
+            </h2>
 
-                        ${escapeHTML(
-                            first.patient_name || "-"
-                        )}
+            ${scans.map(scan => `
 
-                    </div>
+                <div class="patient-result">
 
-                    <div class="result-item">
+                    <h3>
+                        Scan ${escapeHTML(scan.scan_id)}
+                    </h3>
 
-                        <strong>
-                            Age
-                        </strong>
+                    <p>
+                        Date:
+                        ${formatDate(scan.scan_date)}
+                    </p>
 
-                        ${first.patient_age ?? "-"}
+                    <div class="result-grid">
 
-                    </div>
+                        <div class="result-item">
 
-                    <div class="result-item">
+                            <strong>F₀</strong>
 
-                        <strong>
-                            Gender
-                        </strong>
+                            ${formatNumber(scan.f0)}
 
-                        ${escapeHTML(
-                            first.patient_gender || "-"
-                        )}
+                        </div>
+
+                        <div class="result-item">
+
+                            <strong>RMS</strong>
+
+                            ${formatNumber(scan.rms)}
+
+                        </div>
+
+                        <div class="result-item">
+
+                            <strong>Q Factor</strong>
+
+                            ${formatNumber(scan.q_factor)}
+
+                        </div>
+
+                        <div class="result-item">
+
+                            <strong>Bandwidth</strong>
+
+                            ${formatNumber(scan.bandwidth)}
+
+                        </div>
+
+                        <div class="result-item">
+
+                            <strong>Measurement Side</strong>
+
+                            ${escapeHTML(
+                                scan.measurement_side || "-"
+                            )}
+
+                        </div>
+
+                        <div class="result-item">
+
+                            <strong>Comparison</strong>
+
+                            ${escapeHTML(
+                                scan.comparison_status || "Not available"
+                            )}
+
+                        </div>
 
                     </div>
 
                 </div>
 
-            </div>
-
-        `;
-    }
-
-
-    const scans =
-        data.filter(
-            item => item.scan_id
-        );
-
-
-    if (!results)
-        return;
-
-
-    if (scans.length === 0) {
-
-        results.innerHTML = `
-
-            <div class="card">
-
-                <h3>
-                    Scan History
-                </h3>
-
-                <p>
-                    No scan results are available yet.
-                </p>
-
-            </div>
-
-        `;
-
-        showPatientResults();
-
-        return;
-    }
-
-
-    results.innerHTML = `
-
-        <div class="card">
-
-            <h3>
-                My Scan History
-            </h3>
-
-            <div class="table-container">
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>Date</th>
-                            <th>Scan ID</th>
-                            <th>Side</th>
-                            <th>F₀</th>
-                            <th>RMS</th>
-                            <th>Q</th>
-                            <th>Bandwidth</th>
-                            <th>Status</th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        ${scans.map(scan => `
-
-                            <tr>
-
-                                <td>
-                                    ${formatDate(
-                                        scan.scan_date
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${escapeHTML(
-                                        scan.scan_id
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${escapeHTML(
-                                        scan.measurement_side ||
-                                        "-"
-                                    )}
-                                </td>
-
-                                <td>
-                                    ${scan.f0 ?? "-"}
-                                </td>
-
-                                <td>
-                                    ${scan.rms ?? "-"}
-                                </td>
-
-                                <td>
-                                    ${scan.q_factor ?? "-"}
-                                </td>
-
-                                <td>
-                                    ${scan.bandwidth ?? "-"}
-                                </td>
-
-                                <td>
-                                    ${escapeHTML(
-                                        scan.comparison_status ||
-                                        "-"
-                                    )}
-                                </td>
-
-                            </tr>
-
-                        `).join("")}
-
-                    </tbody>
-
-                </table>
-
-            </div>
+            `).join("")}
 
         </div>
-
     `;
-
-
-    showPatientResults();
 }
 
 
@@ -2002,35 +1717,13 @@ function displayPatientResults(data) {
 
 function backToPatientAccess() {
 
-    document
-        .getElementById(
-            "patientResultScreen"
-        )
-        ?.classList.add("hidden");
+    hideElement("patientResultScreen");
 
-    document
-        .getElementById(
-            "loginScreen"
-        )
-        ?.classList.remove("hidden");
+    showLogin();
 
-    const input =
-        document.getElementById(
-            "patientLinkingCode"
-        );
+    $("patientLinkingCode").value = "";
 
-    if (input)
-        input.value = "";
-
-    const message =
-        document.getElementById(
-            "patientAccessMessage"
-        );
-
-    if (message)
-        message.textContent = "";
-
-    window.currentPatient = null;
+    $("patientAccessMessage").textContent = "";
 }
 
 
@@ -2041,8 +1734,8 @@ function backToPatientAccess() {
 function prepareScan() {
 
     alert(
-        "Scan module will be connected here. " +
-        "First select a patient, then start the ESP32 scan."
+        "Scanner interface is ready for the next step.\n\n" +
+        "The ESP32 scan connection has not yet been connected to the website."
     );
 }
 
@@ -2054,17 +1747,144 @@ function prepareScan() {
 function scrollToReference() {
 
     const section =
-        document.getElementById(
-            "operatorReferenceSection"
-        );
+        $("operatorReferenceSection");
 
     if (section) {
 
         section.scrollIntoView({
             behavior: "smooth"
         });
-
     }
+}
+
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+async function logout() {
+
+    try {
+
+        await supabaseClient.auth.signOut();
+
+    } catch (err) {
+
+        console.error(
+            "Logout error:",
+            err
+        );
+    }
+
+
+    window.currentUser = null;
+    window.currentProfile = null;
+
+    showLogin();
+}
+
+
+// ============================================================
+// SCAN TABLE
+// ============================================================
+
+function renderScanTable(
+    container,
+    scans
+) {
+
+    if (!container) {
+        return;
+    }
+
+
+    if (!scans || scans.length === 0) {
+
+        container.innerHTML =
+            `<p>No scan measurements available.</p>`;
+
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Scan ID</th>
+                    <th>Patient</th>
+                    <th>Date</th>
+                    <th>Side</th>
+                    <th>F₀</th>
+                    <th>RMS</th>
+                    <th>Q</th>
+                    <th>Bandwidth</th>
+                    <th>Status</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${scans.map(scan => `
+
+                    <tr>
+
+                        <td>
+                            ${escapeHTML(scan.scan_id || "-")}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                scan.subjects?.name || "-"
+                            )}
+                        </td>
+
+                        <td>
+                            ${formatDate(scan.created_at)}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                scan.measurement_side || "-"
+                            )}
+                        </td>
+
+                        <td>
+                            ${formatNumber(scan.f0)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(scan.rms)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(scan.q_factor)}
+                        </td>
+
+                        <td>
+                            ${formatNumber(scan.bandwidth)}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                scan.comparison_status || "-"
+                            )}
+                        </td>
+
+                    </tr>
+
+                `).join("")}
+
+            </tbody>
+
+        </table>
+    `;
 }
 
 
@@ -2072,182 +1892,84 @@ function scrollToReference() {
 // UTILITIES
 // ============================================================
 
+function formatNumber(value) {
+
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return "-";
+    }
+
+
+    const number =
+        Number(value);
+
+
+    if (!Number.isFinite(number)) {
+        return "-";
+    }
+
+
+    return number.toFixed(3);
+}
+
+
+function formatDate(value) {
+
+    if (!value) {
+        return "-";
+    }
+
+
+    const date =
+        new Date(value);
+
+
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+
+    return date.toLocaleString();
+}
+
+
 function escapeHTML(value) {
 
     if (
         value === null ||
         value === undefined
     ) {
-
         return "";
     }
 
 
     return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-}
-
-
-function formatDate(date) {
-
-    if (!date)
-        return "-";
-
-
-    const parsed =
-        new Date(date);
-
-
-    if (
-        Number.isNaN(
-            parsed.getTime()
-        )
-    ) {
-
-        return "-";
-    }
-
-
-    return parsed.toLocaleString();
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
 // ============================================================
-// SESSION CHECK
+// MAKE FUNCTIONS AVAILABLE TO HTML
 // ============================================================
 
-async function checkSession() {
+window.login = login;
+window.logout = logout;
 
-    try {
+window.patientAccess = patientAccess;
+window.backToPatientAccess = backToPatientAccess;
 
-        const {
-            data: { session }
-        } =
-            await supabaseClient.auth.getSession();
+window.openPatientModal = openPatientModal;
+window.closePatientModal = closePatientModal;
 
+window.addSubject = addSubject;
+window.addReference = addReference;
 
-        if (session) {
-
-            await loadDashboard();
-
-        }
-        else {
-
-            showLogin();
-
-        }
-
-    }
-    catch (error) {
-
-        console.error(
-            "Session error:",
-            error
-        );
-
-        showLogin();
-    }
-}
-
-
-// ============================================================
-// AUTH STATE
-// ============================================================
-
-supabaseClient.auth.onAuthStateChange(
-    async (event, session) => {
-
-        console.log(
-            "Auth event:",
-            event
-        );
-
-
-        if (
-            event === "SIGNED_IN" &&
-            session
-        ) {
-
-            await loadDashboard();
-
-        }
-
-
-        if (
-            event === "SIGNED_OUT"
-        ) {
-
-            showLogin();
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// EXPOSE FUNCTIONS TO HTML
-// ============================================================
-
-window.login =
-    login;
-
-window.logout =
-    logout;
-
-window.patientAccess =
-    patientAccess;
-
-window.backToPatientAccess =
-    backToPatientAccess;
-
-window.openPatientModal =
-    openPatientModal;
-
-window.closePatientModal =
-    closePatientModal;
-
-window.addSubject =
-    addSubject;
-
-window.addReference =
-    addReference;
-
-window.prepareScan =
-    prepareScan;
-
-window.scrollToReference =
-    scrollToReference;
-
-
-// ============================================================
-// START APPLICATION
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        checkSession();
-
-    }
-);
+window.prepareScan = prepareScan;
+window.scrollToReference = scrollToReference;
