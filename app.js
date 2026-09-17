@@ -17,10 +17,10 @@
 // ============================================================
 
 // Put your EXISTING Supabase URL here locally.
-const SUPABASE_URL = "YOUR_EXISTING_SUPABASE_URL";
+const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
 
 // Put your EXISTING Supabase publishable/anon key here locally.
-const SUPABASE_KEY = "YOUR_EXISTING_SUPABASE_KEY";
+const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
 
 const supabaseClient = supabase.createClient(
