@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,10 +30,6 @@
         .hidden {
             display: none !important;
         }
-
-        /* ================================
-           LOGIN
-        ================================= */
 
         .auth-container {
             min-height: 100vh;
@@ -76,12 +73,18 @@
         }
 
         input,
-        select {
+        select,
+        textarea {
             width: 100%;
             padding: 12px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 15px;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
         }
 
         .primary-button {
@@ -107,15 +110,38 @@
             font-size: 15px;
         }
 
+        .small-button {
+            padding: 9px 13px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .cancel-button {
+            padding: 9px 13px;
+            border: 1px solid #9ca3af;
+            border-radius: 7px;
+            background: white;
+            color: #374151;
+            margin-top: 10px;
+        }
+
         .message {
             margin-top: 15px;
             text-align: center;
             color: #dc2626;
         }
 
-        /* ================================
-           HEADER
-        ================================= */
+        .success {
+            color: #059669;
+        }
+
+        .error {
+            color: #dc2626;
+        }
 
         .topbar {
             background: #111827;
@@ -143,10 +169,6 @@
             background: #dc2626;
             color: white;
         }
-
-        /* ================================
-           DASHBOARD
-        ================================= */
 
         .dashboard-container {
             max-width: 1400px;
@@ -176,17 +198,10 @@
             margin-bottom: 20px;
         }
 
-        .card h2 {
-            margin-top: 0;
-        }
-
+        .card h2,
         .card h3 {
             margin-top: 0;
         }
-
-        /* ================================
-           PATIENT CARD
-        ================================= */
 
         .patient-card {
             border: 1px solid #e5e7eb;
@@ -199,6 +214,11 @@
             font-size: 17px;
         }
 
+        .patient-card.selected {
+            border: 2px solid #2563eb;
+            background: #eff6ff;
+        }
+
         .linking-code {
             display: inline-block;
             margin-top: 8px;
@@ -209,9 +229,102 @@
             letter-spacing: 2px;
         }
 
-        /* ================================
-           TABLE
-        ================================= */
+        .selected-patient {
+            background: #eff6ff;
+            border: 1px solid #93c5fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .scan-choice {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .side-button {
+            padding: 15px;
+            border: 2px solid #d1d5db;
+            border-radius: 9px;
+            background: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .side-button:hover {
+            border-color: #2563eb;
+        }
+
+        .side-button.selected {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .scanner-panel {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 18px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .scanner-status {
+            padding: 12px;
+            background: #eef2ff;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .reference-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .reference-actions button {
+            padding: 13px;
+            border-radius: 8px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+        }
+
+        .reference-form {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .result-item {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .result-item strong {
+            display: block;
+            margin-bottom: 5px;
+        }
 
         .table-container {
             overflow-x: auto;
@@ -235,10 +348,6 @@
             background: #f9fafb;
         }
 
-        /* ================================
-           PATIENT ACCESS
-        ================================= */
-
         .patient-access {
             margin-top: 35px;
             padding-top: 25px;
@@ -248,28 +357,6 @@
         .patient-result {
             margin-top: 20px;
         }
-
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .result-item {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        .result-item strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        /* ================================
-           MODAL
-        ================================= */
 
         .modal {
             position: fixed;
@@ -305,19 +392,13 @@
             margin-top: 15px;
         }
 
-        .error {
-            color: #dc2626;
-        }
+        @media (max-width: 700px) {
 
-        .success {
-            color: #059669;
-        }
-
-        /* ================================
-           MOBILE
-        ================================= */
-
-        @media (max-width: 600px) {
+            .reference-actions,
+            .form-row,
+            .scan-choice {
+                grid-template-columns: 1fr;
+            }
 
             .topbar {
                 flex-direction: column;
@@ -331,13 +412,14 @@
             .auth-card {
                 padding: 25px;
             }
-
         }
 
     </style>
 </head>
 
+
 <body>
+
 
 <!-- ============================================================
      STAFF LOGIN
@@ -382,10 +464,10 @@
             Login
         </button>
 
-        <p
-            id="loginMessage"
-            class="message"
-        ></p>
+        <p id="loginMessage" class="message"></p>
+
+
+        <!-- PATIENT ACCESS -->
 
         <div class="patient-access">
 
@@ -488,68 +570,38 @@
             <div class="dashboard-grid">
 
                 <div class="card">
-
-                    <h3>
-                        Users / Operators
-                    </h3>
-
+                    <h3>Users / Operators</h3>
                     <p>
                         View registered staff accounts.
                     </p>
-
                 </div>
 
-
                 <div class="card">
-
-                    <h3>
-                        Patients
-                    </h3>
-
+                    <h3>Patients</h3>
                     <p>
                         View all registered patients.
                     </p>
-
                 </div>
 
-
                 <div class="card">
-
-                    <h3>
-                        Scan History
-                    </h3>
-
+                    <h3>Scan History</h3>
                     <p>
                         View all scanner measurements.
                     </p>
-
                 </div>
 
-
                 <div class="card">
-
-                    <h3>
-                        Reference Database
-                    </h3>
-
+                    <h3>Reference Database</h3>
                     <p>
-                        Manage reference measurements
-                        and reference groups.
+                        Add and manage reference measurements.
                     </p>
-
                 </div>
 
-
                 <div class="card">
-
-                    <h3>
-                        Scanner Devices
-                    </h3>
-
+                    <h3>Scanner Devices</h3>
                     <p>
                         Manage registered scanners.
                     </p>
-
                 </div>
 
             </div>
@@ -603,7 +655,438 @@
             </div>
 
 
-            <!-- REFERENCE DATA -->
+            <!-- =================================================
+                 REFERENCE DATABASE
+            ================================================== -->
+
+            <div class="card">
+
+                <h2>
+                    Reference Database
+                </h2>
+
+                <p>
+                    The administrator can add reference measurements
+                    manually or acquire them using the acoustic scanner.
+                </p>
+
+
+                <div class="reference-actions">
+
+                    <button
+                        onclick="showManualReferenceForm()"
+                    >
+                        + Add Reference Manually
+                    </button>
+
+                    <button
+                        onclick="showScannerReferenceForm()"
+                    >
+                        + Add Reference Using Scanner
+                    </button>
+
+                </div>
+
+
+                <!-- MANUAL FORM -->
+
+                <div
+                    id="manualReferenceForm"
+                    class="reference-form hidden"
+                >
+
+                    <h3>
+                        Manual Reference Entry
+                    </h3>
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                Reference / Sample ID
+                            </label>
+
+                            <input
+                                type="text"
+                                id="manualReferenceId"
+                                placeholder="REF-001"
+                            >
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                Age
+                            </label>
+
+                            <input
+                                type="number"
+                                id="manualReferenceAge"
+                                min="1"
+                                max="120"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                Gender
+                            </label>
+
+                            <select id="manualReferenceGender">
+
+                                <option value="">
+                                    Select Gender
+                                </option>
+
+                                <option value="Male">
+                                    Male
+                                </option>
+
+                                <option value="Female">
+                                    Female
+                                </option>
+
+                                <option value="Other">
+                                    Other
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                Measurement Side
+                            </label>
+
+                            <select id="manualReferenceSide">
+
+                                <option value="">
+                                    Select Side
+                                </option>
+
+                                <option value="Left">
+                                    Left
+                                </option>
+
+                                <option value="Right">
+                                    Right
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                F₀ (Hz)
+                            </label>
+
+                            <input
+                                type="number"
+                                step="any"
+                                id="manualReferenceF0"
+                            >
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                RMS
+                            </label>
+
+                            <input
+                                type="number"
+                                step="any"
+                                id="manualReferenceRMS"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                Q-factor
+                            </label>
+
+                            <input
+                                type="number"
+                                step="any"
+                                id="manualReferenceQ"
+                            >
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                Bandwidth (Hz)
+                            </label>
+
+                            <input
+                                type="number"
+                                step="any"
+                                id="manualReferenceBandwidth"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <label>
+                        Notes
+                    </label>
+
+                    <textarea
+                        id="manualReferenceNotes"
+                        placeholder="Optional notes"
+                    ></textarea>
+
+
+                    <button
+                        class="small-button"
+                        onclick="saveManualReference()"
+                    >
+                        Save Reference
+                    </button>
+
+                    <button
+                        class="cancel-button"
+                        onclick="hideReferenceForms()"
+                    >
+                        Cancel
+                    </button>
+
+                    <p
+                        id="manualReferenceMessage"
+                        class="message"
+                    ></p>
+
+                </div>
+
+
+                <!-- SCANNER FORM -->
+
+                <div
+                    id="scannerReferenceForm"
+                    class="reference-form hidden"
+                >
+
+                    <h3>
+                        Add Reference Using Scanner
+                    </h3>
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                Reference / Sample ID
+                            </label>
+
+                            <input
+                                type="text"
+                                id="scannerReferenceId"
+                                placeholder="REF-001"
+                            >
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                Age
+                            </label>
+
+                            <input
+                                type="number"
+                                id="scannerReferenceAge"
+                                min="1"
+                                max="120"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div>
+
+                            <label>
+                                Gender
+                            </label>
+
+                            <select id="scannerReferenceGender">
+
+                                <option value="">
+                                    Select Gender
+                                </option>
+
+                                <option value="Male">
+                                    Male
+                                </option>
+
+                                <option value="Female">
+                                    Female
+                                </option>
+
+                                <option value="Other">
+                                    Other
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <div>
+
+                            <label>
+                                Measurement Side
+                            </label>
+
+                            <select id="scannerReferenceSide">
+
+                                <option value="">
+                                    Select Side
+                                </option>
+
+                                <option value="Left">
+                                    Left
+                                </option>
+
+                                <option value="Right">
+                                    Right
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="scanner-panel">
+
+                        <strong>
+                            Scanner Status
+                        </strong>
+
+                        <div
+                            id="referenceScannerStatus"
+                            class="scanner-status"
+                        >
+                            Scanner ready.
+                        </div>
+
+
+                        <button
+                            class="primary-button"
+                            onclick="startReferenceScan()"
+                        >
+                            Start Reference Scan
+                        </button>
+
+
+                        <div
+                            id="referenceScanResults"
+                            class="hidden"
+                        >
+
+                            <h3>
+                                Scan Results
+                            </h3>
+
+                            <div class="result-grid">
+
+                                <div class="result-item">
+                                    <strong>F₀</strong>
+                                    <span id="referenceScanF0">
+                                        ---
+                                    </span>
+                                    Hz
+                                </div>
+
+                                <div class="result-item">
+                                    <strong>RMS</strong>
+                                    <span id="referenceScanRMS">
+                                        ---
+                                    </span>
+                                </div>
+
+                                <div class="result-item">
+                                    <strong>Q-factor</strong>
+                                    <span id="referenceScanQ">
+                                        ---
+                                    </span>
+                                </div>
+
+                                <div class="result-item">
+                                    <strong>Bandwidth</strong>
+                                    <span id="referenceScanBandwidth">
+                                        ---
+                                    </span>
+                                    Hz
+                                </div>
+
+                            </div>
+
+
+                            <button
+                                class="small-button"
+                                onclick="saveScannerReference()"
+                            >
+                                Save Reference
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <p
+                        id="scannerReferenceMessage"
+                        class="message"
+                    ></p>
+
+
+                    <button
+                        class="cancel-button"
+                        onclick="hideReferenceForms()"
+                    >
+                        Cancel
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- REFERENCE MEASUREMENTS -->
 
             <div class="card">
 
@@ -619,111 +1102,26 @@
             </div>
 
 
-            <!-- ADD REFERENCE -->
+            <!-- REFERENCE GROUPS -->
 
             <div class="card">
 
                 <h2>
-                    Add Reference Measurement
+                    Reference Groups
                 </h2>
 
-                <label>
-                    Reference ID
-                </label>
+                <p>
+                    These groups contain calculated reference statistics
+                    for age and gender categories.
+                </p>
 
-                <input
-                    id="referenceId"
-                    placeholder="REF-001"
-                >
-
-                <label>
-                    Age
-                </label>
-
-                <input
-                    type="number"
-                    id="referenceAge"
-                    min="1"
-                    max="120"
-                >
-
-                <label>
-                    Gender
-                </label>
-
-                <select id="referenceGender">
-
-                    <option value="">
-                        Select gender
-                    </option>
-
-                    <option value="Male">
-                        Male
-                    </option>
-
-                    <option value="Female">
-                        Female
-                    </option>
-
-                    <option value="Other">
-                        Other
-                    </option>
-
-                </select>
-
-                <label>
-                    F₀
-                </label>
-
-                <input
-                    type="number"
-                    id="referenceF0"
-                    step="any"
-                >
-
-                <label>
-                    RMS
-                </label>
-
-                <input
-                    type="number"
-                    id="referenceRMS"
-                    step="any"
-                >
-
-                <label>
-                    Q Factor
-                </label>
-
-                <input
-                    type="number"
-                    id="referenceQ"
-                    step="any"
-                >
-
-                <label>
-                    Bandwidth
-                </label>
-
-                <input
-                    type="number"
-                    id="referenceBandwidth"
-                    step="any"
-                >
-
-                <button
-                    class="primary-button"
-                    onclick="addReference()"
-                >
-                    Add Reference Measurement
-                </button>
-
-                <p
-                    id="referenceMessage"
-                    class="message"
-                ></p>
+                <div
+                    id="adminReferenceGroups"
+                    class="table-container"
+                ></div>
 
             </div>
+
 
         </section>
 
@@ -780,8 +1178,8 @@
                     </h2>
 
                     <p>
-                        Select a patient before starting
-                        the acoustic measurement.
+                        Select a patient and measurement side
+                        before starting the acoustic measurement.
                     </p>
 
                     <button
@@ -824,9 +1222,66 @@
                     My Patients
                 </h2>
 
+                <div id="subjectsList"></div>
+
+            </div>
+
+
+            <!-- SELECTED PATIENT / SCAN -->
+
+            <div class="card">
+
+                <h2>
+                    Scan Preparation
+                </h2>
+
                 <div
-                    id="subjectsList"
-                ></div>
+                    id="selectedPatientBox"
+                    class="selected-patient"
+                >
+                    No patient selected.
+                </div>
+
+
+                <label>
+                    Measurement Side
+                </label>
+
+                <div class="scan-choice">
+
+                    <button
+                        id="leftSideButton"
+                        class="side-button"
+                        onclick="selectMeasurementSide('Left')"
+                    >
+                        LEFT
+                    </button>
+
+                    <button
+                        id="rightSideButton"
+                        class="side-button"
+                        onclick="selectMeasurementSide('Right')"
+                    >
+                        RIGHT
+                    </button>
+
+                </div>
+
+
+                <button
+                    class="primary-button"
+                    onclick="beginPatientScan()"
+                >
+                    Begin Acoustic Scan
+                </button>
+
+
+                <div
+                    id="scannerStatus"
+                    class="scanner-status"
+                >
+                    Scanner ready.
+                </div>
 
             </div>
 
@@ -847,7 +1302,7 @@
             </div>
 
 
-            <!-- REFERENCE DATABASE -->
+            <!-- OPERATOR REFERENCE DATABASE -->
 
             <div
                 id="operatorReferenceSection"
@@ -866,7 +1321,7 @@
             </div>
 
 
-            <!-- SCANNER -->
+            <!-- SCANNER DEVICE -->
 
             <div class="card">
 
@@ -875,12 +1330,12 @@
                 </h2>
 
                 <p>
-                    Scanner connection and ESP32
-                    measurement interface.
+                    Scanner connection and ESP32 measurement interface.
                 </p>
 
-                <div id="scannerStatus">
-                    Scanner ready.
+                <div class="scanner-status">
+                    ESP32 scanner interface will be connected
+                    in the next step.
                 </div>
 
             </div>
@@ -960,6 +1415,7 @@
 
         </select>
 
+
         <button
             class="primary-button"
             onclick="addSubject()"
@@ -971,6 +1427,7 @@
             id="subjectMessage"
             class="message"
         ></p>
+
 
         <div
             id="createdPatientInfo"
@@ -1005,9 +1462,7 @@
             Acoustic Bone Scanner
         </p>
 
-        <div
-            id="patientDetails"
-        ></div>
+        <div id="patientDetails"></div>
 
         <div
             id="patientScanResults"
@@ -1026,9 +1481,7 @@
 </div>
 
 
-<!-- ============================================================
-     JAVASCRIPT
-============================================================ -->
+<!-- JAVASCRIPT -->
 
 <script src="app.js"></script>
 
