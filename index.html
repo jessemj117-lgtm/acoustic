@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta name="viewport"
@@ -11,47 +10,52 @@
     <title>Acoustic Bone Scanner</title>
 
     <link rel="stylesheet"
-          href="style.css?v=10">
-
+          href="style.css?v=11">
 </head>
 
 <body>
 
 <!-- =========================================================
-     LOGIN SCREEN
+     LOGIN
 ========================================================= -->
 
-<div id="loginScreen">
+<div id="loginScreen" class="screen">
 
-    <div class="auth-box">
+    <div class="auth-card">
 
         <h1>Acoustic Bone Scanner</h1>
 
-        <p>Login to your account</p>
+        <p class="subtitle">
+            Operator Login
+        </p>
 
         <input
-            type="email"
             id="loginEmail"
+            type="email"
             placeholder="Email"
-            autocomplete="email"
         >
 
         <input
-            type="password"
             id="loginPassword"
+            type="password"
             placeholder="Password"
-            autocomplete="current-password"
         >
 
         <button onclick="login()">
             Login
         </button>
 
-        <button onclick="showRegister()">
-            Create Account
+        <button
+            class="secondary"
+            onclick="showRegister()">
+
+            Create Operator Account
+
         </button>
 
-        <p id="loginMessage"></p>
+        <p id="loginMessage"
+           class="message">
+        </p>
 
     </div>
 
@@ -59,48 +63,54 @@
 
 
 <!-- =========================================================
-     REGISTER SCREEN
+     REGISTER OPERATOR
 ========================================================= -->
 
 <div id="registerScreen"
+     class="screen"
      style="display:none;">
 
-    <div class="auth-box">
+    <div class="auth-card">
 
-        <h1>Create Account</h1>
+        <h1>Create Operator Account</h1>
 
-        <p>Create a new user account</p>
+        <p class="subtitle">
+            Register a scanner operator
+        </p>
 
         <input
-            type="text"
             id="registerName"
+            type="text"
             placeholder="Full Name"
-            autocomplete="name"
         >
 
         <input
-            type="email"
             id="registerEmail"
+            type="email"
             placeholder="Email"
-            autocomplete="email"
         >
 
         <input
-            type="password"
             id="registerPassword"
+            type="password"
             placeholder="Password"
-            autocomplete="new-password"
         >
 
         <button onclick="registerUser()">
             Create Account
         </button>
 
-        <button onclick="showLogin()">
+        <button
+            class="secondary"
+            onclick="showLogin()">
+
             Back to Login
+
         </button>
 
-        <p id="registerMessage"></p>
+        <p id="registerMessage"
+           class="message">
+        </p>
 
     </div>
 
@@ -108,7 +118,7 @@
 
 
 <!-- =========================================================
-     DASHBOARD
+     OPERATOR DASHBOARD
 ========================================================= -->
 
 <div id="dashboard"
@@ -124,74 +134,55 @@
                 Acoustic Bone Scanner
             </h1>
 
-            <p>
-                Low-Cost Acoustic Resonance
-                Bone Density Screening Prototype
+            <p id="userInfo">
+                Loading user...
             </p>
 
         </div>
 
-        <div class="user-area">
+        <button
+            class="logout-button"
+            onclick="logout()">
 
-            <span id="userInfo">
-                Loading...
-            </span>
+            Logout
 
-            <button onclick="logout()">
-                Logout
-            </button>
-
-        </div>
+        </button>
 
     </header>
 
-
-    <!-- MAIN CONTENT -->
 
     <main class="container">
 
 
         <!-- =================================================
-             SUMMARY CARDS
-        ================================================= -->
+             OPERATOR CONTROL
+        ================================================== -->
 
-        <section class="cards">
+        <section class="dashboard-card">
 
-            <div class="card">
+            <div class="section-header">
 
-                <h3>
-                    My Subjects
-                </h3>
+                <div>
 
-                <div id="subjectCount">
-                    -
+                    <h2>Scanner Operator</h2>
+
+                    <p>
+                        Create and select a patient
+                        before performing a scan.
+                    </p>
+
                 </div>
+
+                <button onclick="openSubjectModal()">
+                    + Create Patient
+                </button>
 
             </div>
 
+            <div id="selectedPatient"
+                 class="selected-patient">
 
-            <div class="card">
-
-                <h3>
-                    My Scans
-                </h3>
-
-                <div id="scanCount">
-                    -
-                </div>
-
-            </div>
-
-
-            <div class="card">
-
-                <h3>
-                    Reference Groups
-                </h3>
-
-                <div id="referenceCount">
-                    -
-                </div>
+                No patient selected
 
             </div>
 
@@ -199,35 +190,29 @@
 
 
         <!-- =================================================
-             SUBJECTS
-        ================================================= -->
+             PATIENTS
+        ================================================== -->
 
-        <section class="section">
+        <section class="dashboard-card">
 
             <div class="section-header">
 
                 <div>
 
-                    <h2>
-                        My Subjects
-                    </h2>
+                    <h2>My Patients</h2>
 
                     <p>
-                        Subjects assigned to your account
+                        Patients created by this operator.
                     </p>
 
                 </div>
-
-                <button onclick="openSubjectModal()">
-                    + Add Subject
-                </button>
 
             </div>
 
             <div id="subjectsList">
 
                 <p>
-                    Loading subjects...
+                    Loading patients...
                 </p>
 
             </div>
@@ -236,22 +221,20 @@
 
 
         <!-- =================================================
-             SCAN HISTORY
-        ================================================= -->
+             SCANS
+        ================================================== -->
 
-        <section class="section">
+        <section class="dashboard-card">
 
             <div class="section-header">
 
                 <div>
 
-                    <h2>
-                        My Scan History
-                    </h2>
+                    <h2>My Scan History</h2>
 
                     <p>
                         Acoustic measurements associated
-                        with your account
+                        with your patients.
                     </p>
 
                 </div>
@@ -271,21 +254,18 @@
 
         <!-- =================================================
              REFERENCE DATABASE
-        ================================================= -->
+        ================================================== -->
 
-        <section class="section">
+        <section class="dashboard-card">
 
             <div class="section-header">
 
                 <div>
 
-                    <h2>
-                        Reference Database
-                    </h2>
+                    <h2>Reference Database</h2>
 
                     <p>
-                        Shared reference measurements
-                        grouped by age and gender
+                        Shared reference measurements.
                     </p>
 
                 </div>
@@ -305,23 +285,20 @@
 
         <!-- =================================================
              ADMIN PANEL
-        ================================================= -->
+        ================================================== -->
 
         <section id="adminPanel"
-                 class="section admin-section"
+                 class="dashboard-card admin-panel"
                  style="display:none;">
 
             <div class="section-header">
 
                 <div>
 
-                    <h2>
-                        Admin Panel
-                    </h2>
+                    <h2>Admin Panel</h2>
 
                     <p>
-                        Administrator access to all
-                        users and measurements
+                        Administrator-only controls.
                     </p>
 
                 </div>
@@ -331,11 +308,9 @@
 
             <!-- USERS -->
 
-            <div class="admin-block">
+            <div class="admin-section">
 
-                <h3>
-                    All Users
-                </h3>
+                <h3>Users / Operators</h3>
 
                 <div id="adminUsers">
 
@@ -348,18 +323,16 @@
             </div>
 
 
-            <!-- ALL SUBJECTS -->
+            <!-- ALL PATIENTS -->
 
-            <div class="admin-block">
+            <div class="admin-section">
 
-                <h3>
-                    All Subjects
-                </h3>
+                <h3>All Patients</h3>
 
                 <div id="adminSubjects">
 
                     <p>
-                        Loading subjects...
+                        Loading patients...
                     </p>
 
                 </div>
@@ -369,11 +342,9 @@
 
             <!-- ALL SCANS -->
 
-            <div class="admin-block">
+            <div class="admin-section">
 
-                <h3>
-                    All Scan Measurements
-                </h3>
+                <h3>All Scans</h3>
 
                 <div id="adminScans">
 
@@ -388,21 +359,15 @@
 
             <!-- REFERENCE MEASUREMENTS -->
 
-            <div class="admin-block">
+            <div class="admin-section">
 
-                <div class="section-header">
+                <h3>Reference Measurements</h3>
 
-                    <h3>
-                        Reference Measurements
-                    </h3>
+                <button onclick="openReferenceModal()">
+                    + Add Reference Measurement
+                </button>
 
-                    <button onclick="openReferenceModal()">
-                        + Add Reference
-                    </button>
-
-                </div>
-
-                <div id="adminReferences">
+                <div id="adminReferenceMeasurements">
 
                     <p>
                         Loading reference measurements...
@@ -414,14 +379,13 @@
 
         </section>
 
-
     </main>
 
 </div>
 
 
 <!-- =========================================================
-     ADD SUBJECT MODAL
+     CREATE PATIENT MODAL
 ========================================================= -->
 
 <div id="subjectModal"
@@ -430,34 +394,53 @@
 
     <div class="modal-content">
 
-        <h2>
-            Add Subject
-        </h2>
+        <div class="modal-header">
+
+            <h2>Create Patient</h2>
+
+            <button
+                class="close-button"
+                onclick="closeSubjectModal()">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <label>
+            Patient Name
+        </label>
 
         <input
-            type="text"
-            id="subjectId"
-            placeholder="Subject ID"
-        >
-
-        <input
-            type="text"
             id="subjectName"
-            placeholder="Subject Name"
+            type="text"
+            placeholder="Enter patient name"
         >
 
+
+        <label>
+            Age
+        </label>
+
         <input
-            type="number"
             id="subjectAge"
-            placeholder="Age"
+            type="number"
             min="1"
             max="120"
+            placeholder="Enter age"
         >
+
+
+        <label>
+            Gender
+        </label>
 
         <select id="subjectGender">
 
             <option value="">
-                Select Gender
+                Select gender
             </option>
 
             <option value="Male">
@@ -474,18 +457,22 @@
 
         </select>
 
-        <p id="subjectMessage"></p>
 
-        <div class="modal-buttons">
+        <input
+            id="subjectId"
+            type="hidden"
+        >
 
-            <button onclick="addSubject()">
-                Add Subject
-            </button>
 
-            <button onclick="closeSubjectModal()">
-                Cancel
-            </button>
+        <button onclick="addSubject()">
 
+            Create Patient
+
+        </button>
+
+
+        <div id="subjectMessage"
+             class="message">
         </div>
 
     </div>
@@ -494,7 +481,7 @@
 
 
 <!-- =========================================================
-     ADD REFERENCE MODAL
+     REFERENCE MODAL
 ========================================================= -->
 
 <div id="referenceModal"
@@ -503,28 +490,53 @@
 
     <div class="modal-content">
 
-        <h2>
-            Add Reference Measurement
-        </h2>
+        <div class="modal-header">
+
+            <h2>Add Reference Measurement</h2>
+
+            <button
+                class="close-button"
+                onclick="closeReferenceModal()">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <label>
+            Reference ID
+        </label>
 
         <input
-            type="text"
             id="referenceId"
-            placeholder="Reference ID"
+            type="text"
+            placeholder="REF-001"
         >
 
+
+        <label>
+            Age
+        </label>
+
         <input
-            type="number"
             id="referenceAge"
-            placeholder="Age"
+            type="number"
             min="1"
             max="120"
+            placeholder="Age"
         >
+
+
+        <label>
+            Gender
+        </label>
 
         <select id="referenceGender">
 
             <option value="">
-                Select Gender
+                Select gender
             </option>
 
             <option value="Male">
@@ -541,46 +553,64 @@
 
         </select>
 
+
+        <label>
+            Resonance Frequency F₀
+        </label>
+
         <input
-            type="number"
             id="referenceF0"
-            placeholder="Resonance Frequency (Hz)"
-            step="any"
+            type="number"
+            step="0.01"
+            placeholder="Hz"
         >
 
+
+        <label>
+            RMS
+        </label>
+
         <input
-            type="number"
             id="referenceRMS"
+            type="number"
+            step="0.001"
             placeholder="RMS"
-            step="any"
         >
 
+
+        <label>
+            Q-factor
+        </label>
+
         <input
-            type="number"
             id="referenceQ"
-            placeholder="Q Factor"
-            step="any"
+            type="number"
+            step="0.01"
+            placeholder="Q"
         >
+
+
+        <label>
+            Bandwidth
+        </label>
 
         <input
-            type="number"
             id="referenceBandwidth"
-            placeholder="Bandwidth (Hz)"
-            step="any"
+            type="number"
+            step="0.01"
+            placeholder="Hz"
         >
 
-        <p id="referenceMessage"></p>
 
-        <div class="modal-buttons">
+        <button onclick="addReference()">
 
-            <button onclick="addReference()">
-                Add Reference
-            </button>
+            Add Reference
 
-            <button onclick="closeReferenceModal()">
-                Cancel
-            </button>
+        </button>
 
+
+        <div id="referenceMessage"
+             class="message">
         </div>
 
     </div>
@@ -597,10 +627,10 @@
 
 
 <!-- =========================================================
-     APPLICATION JAVASCRIPT
+     APPLICATION
 ========================================================= -->
 
-<script src="app.js?v=10">
+<script src="app.js?v=11">
 </script>
 
 
@@ -612,31 +642,72 @@
 
 function openSubjectModal() {
 
-    document.getElementById("subjectModal").style.display =
-        "flex";
+    document.getElementById(
+        "subjectModal"
+    ).style.display = "flex";
 
 }
+
 
 function closeSubjectModal() {
 
-    document.getElementById("subjectModal").style.display =
-        "none";
+    document.getElementById(
+        "subjectModal"
+    ).style.display = "none";
 
 }
+
 
 function openReferenceModal() {
 
-    document.getElementById("referenceModal").style.display =
-        "flex";
+    document.getElementById(
+        "referenceModal"
+    ).style.display = "flex";
 
 }
+
 
 function closeReferenceModal() {
 
-    document.getElementById("referenceModal").style.display =
-        "none";
+    document.getElementById(
+        "referenceModal"
+    ).style.display = "none";
 
 }
+
+
+// Close modal when clicking outside
+
+window.addEventListener(
+    "click",
+    function(event) {
+
+        const subjectModal =
+            document.getElementById(
+                "subjectModal"
+            );
+
+        const referenceModal =
+            document.getElementById(
+                "referenceModal"
+            );
+
+
+        if (event.target === subjectModal) {
+
+            closeSubjectModal();
+
+        }
+
+
+        if (event.target === referenceModal) {
+
+            closeReferenceModal();
+
+        }
+
+    }
+);
 
 </script>
 
