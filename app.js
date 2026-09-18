@@ -12,8 +12,8 @@
 // Use the Supabase PUBLISHABLE/ANON key only.
 // NEVER use the secret/service-role key in this file.
 
-const SUPABASE_URL = "YOUR_EXISTING_SUPABASE_PROJECT_URL";
-const SUPABASE_PUBLISHABLE_KEY = "YOUR_EXISTING_SUPABASE_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
 const { createClient } = supabase;
 
