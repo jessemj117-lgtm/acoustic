@@ -1036,21 +1036,36 @@ function selectMeasurementSide(side) {
     }
 
 
-    currentMeasurementSide = side;
+    // Database requires LEFT / RIGHT
+    const normalizedSide = String(side).toUpperCase();
+
+    if (
+        normalizedSide !== "LEFT" &&
+        normalizedSide !== "RIGHT"
+    ) {
+
+        alert("Invalid measurement side.");
+
+        return;
+    }
+
+
+    currentMeasurementSide = normalizedSide;
 
 
     document
         .getElementById("leftSideButton")
         .classList.toggle(
             "selected",
-            side === "Left"
+            normalizedSide === "LEFT"
         );
+
 
     document
         .getElementById("rightSideButton")
         .classList.toggle(
             "selected",
-            side === "Right"
+            normalizedSide === "RIGHT"
         );
 
 
@@ -1063,7 +1078,7 @@ function selectMeasurementSide(side) {
         .getElementById("scanCommandStatus")
         .innerHTML =
         `<div class="message">
-            ${side} side selected. Press Start ESP32 Scan.
+            ${normalizedSide} side selected. Press Start ESP32 Scan.
         </div>`;
 
 }
