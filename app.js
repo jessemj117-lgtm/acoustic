@@ -10,8 +10,8 @@
 // Put your existing Supabase project URL here.
 // Do NOT put the secret/service-role key here.
 
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
 const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
