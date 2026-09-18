@@ -13,10 +13,10 @@
 // Never put the Supabase service-role/secret key in this file.
 //
 const SUPABASE_URL =
-    "YOUR_EXISTING_SUPABASE_URL";
+    "https://ropiudyalwarmowaiugu.supabase.co";
 
 const SUPABASE_KEY =
-    "YOUR_EXISTING_SUPABASE_PUBLISHABLE_KEY";
+    "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
 const { createClient } = window.supabase;
 
