@@ -1,34 +1,55 @@
 // ============================================================
-// GROUP 4 ACOUSTIC BONE SCANNER
-// WEBSITE APPLICATION
+// GROUP 4 ACOUSTIC BONE DENSITY SCANNER
+// WEBSITE APP.JS
+//
+// Architecture:
+//
+// GitHub Pages Website
+//        |
+//        v
+// Supabase scan_commands
+//        |
+//        v
+// ESP32 Wi-Fi
+//        |
+//        v
+// Acoustic Scan
+//        |
+//        v
+// Supabase scan_measurements
+//        |
+//        v
+// Website
+//
+// Device:
+// ABS-001
+//
+// IMPORTANT:
+// This is an acoustic measurement/research screening prototype.
+// It is NOT a clinically validated osteoporosis diagnostic device.
 // ============================================================
+
 
 // ============================================================
 // SUPABASE CONFIGURATION
 // ============================================================
-//
-// Keep your existing Supabase URL and publishable key here.
-//
-// IMPORTANT:
-// Never put the Supabase service-role/secret key in this file.
-//
-const SUPABASE_URL =
-    "https://ropiudyalwarmowaiugu.supabase.co";
 
-const SUPABASE_KEY =
-    "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
+// Paste the SAME Supabase URL you already use.
+const SUPABASE_URL = "https://ropiudyalwarmowaiugu.supabase.co";
 
-const { createClient } = window.supabase;
+// Paste the SAME Supabase publishable/anon key you already use.
+const SUPABASE_KEY = "sb_publishable_m4JSo5oRhn6GUOrWzBJBtA_o-W3Fr8K";
 
-const supabaseClient =
-    createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
+
+// Create Supabase client
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
 
 
 // ============================================================
-// GLOBAL VARIABLES
+// GLOBAL STATE
 // ============================================================
 
 let currentUser = null;
@@ -40,98 +61,112 @@ let currentMeasurementSide = null;
 let referenceScannerRunning = false;
 let patientScannerRunning = false;
 
-
-// ============================================================
-// ESP32 WIRELESS STATE
-// ============================================================
-
-let esp32Connected = false;
-
-let esp32BaseUrl =
-    localStorage.getItem("esp32BaseUrl") || "";
-
 let wirelessPollTimer = null;
 
-let wirelessScanStartTime = null;
+let currentWirelessCommandId = null;
+let currentWirelessScanId = null;
+let currentWirelessMode = null;
 
-const ESP32_DEVICE_ID = "ABS-001";
+const SCANNER_DEVICE_ID = "ABS-001";
 
 
 // ============================================================
 // DOM READY
 // ============================================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async function () {
+document.addEventListener("DOMContentLoaded", async () => {
 
-        try {
+    console.log("Acoustic Scanner application starting...");
 
-            const {
-                data,
-                error
-            } =
-                await supabaseClient.auth.getSession();
+    await initializeApplication();
+
+});
 
 
-            if (error) {
+// ============================================================
+// INITIALIZE APPLICATION
+// ============================================================
 
-                console.error(error);
+async function initializeApplication() {
 
-                showLogin();
+    try {
 
-                return;
+        const {
+            data: {
+                session
+            },
+            error
+        } = await supabaseClient.auth.getSession();
 
-            }
-
-
-            if (data.session) {
-
-                currentUser =
-                    data.session.user;
-
-                await loadDashboard();
-
-            }
-
-            else {
-
-                showLogin();
-
-            }
-
-
-            // Restore previously entered ESP32 address.
-            const esp32Input =
-                document.getElementById(
-                    "esp32BaseUrl"
-                );
-
-
-            if (
-                esp32Input &&
-                esp32BaseUrl
-            ) {
-
-                esp32Input.value =
-                    esp32BaseUrl;
-
-            }
-
-
-            setScannerStatus(
-                "ESP32 wireless connection: Not connected."
-            );
-
-
+        if (error) {
+            console.error("Session error:", error);
+            showLogin();
+            return;
         }
 
-        catch (error) {
+        if (!session) {
+            showLogin();
+            return;
+        }
 
-            console.error(
-                "Startup error:",
-                error
-            );
+        currentUser = session.user;
+
+        await loadProfile();
+
+        if (!currentProfile) {
+            showLogin();
+            return;
+        }
+
+        await loadDashboard();
+
+    } catch (error) {
+
+        console.error(
+            "Application initialization error:",
+            error
+        );
+
+        showLogin();
+
+    }
+
+}
+
+
+// ============================================================
+// AUTH STATE CHANGE
+// ============================================================
+
+supabaseClient.auth.onAuthStateChange(
+    async (event, session) => {
+
+        console.log(
+            "Auth state:",
+            event
+        );
+
+        if (session) {
+
+            currentUser = session.user;
+
+            setTimeout(async () => {
+
+                await loadProfile();
+
+                if (currentProfile) {
+                    await loadDashboard();
+                }
+
+            }, 0);
+
+        } else {
+
+            currentUser = null;
+            currentProfile = null;
+            currentPatient = null;
+
+            stopWirelessPolling();
 
             showLogin();
 
@@ -142,76 +177,19 @@ document.addEventListener(
 
 
 // ============================================================
-// LOGIN SCREEN
-// ============================================================
-
-function showLogin() {
-
-    const loginScreen =
-        document.getElementById(
-            "loginScreen"
-        );
-
-    const dashboard =
-        document.getElementById(
-            "dashboard"
-        );
-
-    const patientResultScreen =
-        document.getElementById(
-            "patientResultScreen"
-        );
-
-
-    if (loginScreen) {
-
-        loginScreen
-            .classList
-            .remove("hidden");
-
-    }
-
-
-    if (dashboard) {
-
-        dashboard
-            .classList
-            .add("hidden");
-
-    }
-
-
-    if (patientResultScreen) {
-
-        patientResultScreen
-            .classList
-            .add("hidden");
-
-    }
-
-}
-
-
-// ============================================================
 // LOGIN
 // ============================================================
 
 async function login() {
 
     const emailElement =
-        document.getElementById(
-            "loginEmail"
-        );
+        document.getElementById("loginEmail");
 
     const passwordElement =
-        document.getElementById(
-            "loginPassword"
-        );
+        document.getElementById("loginPassword");
 
-    const message =
-        document.getElementById(
-            "loginMessage"
-        );
+    const messageElement =
+        document.getElementById("loginMessage");
 
 
     const email =
@@ -228,187 +206,146 @@ async function login() {
     if (!email || !password) {
 
         setMessage(
-            message,
+            messageElement,
             "Please enter email and password.",
             "error"
         );
 
         return;
-
     }
 
 
     setMessage(
-        message,
-        "Logging in...",
+        messageElement,
+        "Signing in...",
         "info"
     );
 
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient.auth
-            .signInWithPassword({
-                email,
-                password
-            });
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
 
-        console.error(error);
+
+        currentUser = data.user;
+
+        await loadProfile();
+
+        if (!currentProfile) {
+
+            throw new Error(
+                "User profile was not found."
+            );
+
+        }
+
+
+        await loadDashboard();
+
+
+    } catch (error) {
+
+        console.error(
+            "Login error:",
+            error
+        );
 
         setMessage(
-            message,
-            error.message,
+            messageElement,
+            error.message ||
+            "Login failed.",
             "error"
         );
 
-        return;
-
     }
-
-
-    currentUser =
-        data.user;
-
-
-    await loadDashboard();
 
 }
 
 
 // ============================================================
-// LOAD DASHBOARD
+// LOGOUT
 // ============================================================
 
-async function loadDashboard() {
+async function logout() {
 
-    if (!currentUser) {
+    stopWirelessPolling();
 
-        const {
-            data
-        } =
-            await supabaseClient.auth
-                .getUser();
+    currentUser = null;
+    currentProfile = null;
+    currentPatient = null;
 
-        currentUser =
-            data.user;
+    try {
 
-    }
+        await supabaseClient.auth.signOut();
 
-
-    if (!currentUser) {
-
-        showLogin();
-
-        return;
-
-    }
-
-
-    const profile =
-        await loadProfile();
-
-
-    if (!profile) {
-
-        setMessage(
-            document.getElementById(
-                "loginMessage"
-            ),
-            "Your profile could not be loaded.",
-            "error"
-        );
-
-        return;
-
-    }
-
-
-    currentProfile =
-        profile;
-
-
-    document
-        .getElementById("loginScreen")
-        ?.classList
-        .add("hidden");
-
-
-    document
-        .getElementById("patientResultScreen")
-        ?.classList
-        .add("hidden");
-
-
-    document
-        .getElementById("dashboard")
-        ?.classList
-        .remove("hidden");
-
-
-    document
-        .getElementById("adminDashboard")
-        ?.classList
-        .add("hidden");
-
-
-    document
-        .getElementById("operatorDashboard")
-        ?.classList
-        .add("hidden");
-
-
-    const userInfo =
-        document.getElementById(
-            "userInfo"
-        );
-
-
-    if (userInfo) {
-
-        userInfo.textContent =
-            `${profile.full_name || profile.email || currentUser.email} | Role: ${profile.role}`;
-
-    }
-
-
-    if (profile.role === "admin") {
-
-        document
-            .getElementById("adminDashboard")
-            ?.classList
-            .remove("hidden");
-
-
-        await loadAdminDashboard();
-
-    }
-
-
-    else if (profile.role === "operator") {
-
-        document
-            .getElementById("operatorDashboard")
-            ?.classList
-            .remove("hidden");
-
-
-        await loadOperatorDashboard();
-
-    }
-
-
-    else {
+    } catch (error) {
 
         console.error(
-            "Unknown user role:",
-            profile.role
+            "Logout error:",
+            error
         );
 
+    }
+
+    showLogin();
+
+}
+
+
+// ============================================================
+// SHOW LOGIN
+// ============================================================
+
+function showLogin() {
+
+    const loginSection =
+        document.getElementById("loginSection");
+
+    const dashboardSection =
+        document.getElementById("dashboardSection");
+
+
+    if (loginSection) {
+        loginSection.style.display = "block";
+    }
+
+    if (dashboardSection) {
+        dashboardSection.style.display = "none";
+    }
+
+}
+
+
+// ============================================================
+// SHOW DASHBOARD
+// ============================================================
+
+function showDashboard() {
+
+    const loginSection =
+        document.getElementById("loginSection");
+
+    const dashboardSection =
+        document.getElementById("dashboardSection");
+
+
+    if (loginSection) {
+        loginSection.style.display = "none";
+    }
+
+    if (dashboardSection) {
+        dashboardSection.style.display = "block";
     }
 
 }
@@ -420,33 +357,186 @@ async function loadDashboard() {
 
 async function loadProfile() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
             .from("profiles")
             .select("*")
-            .eq(
-                "id",
+            .eq("id", currentUser.id)
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        currentProfile = data;
+
+
+        if (!currentProfile) {
+
+            console.warn(
+                "No profile found for user:",
                 currentUser.id
-            )
-            .single();
+            );
+
+            return;
+
+        }
 
 
-    if (error) {
+        console.log(
+            "Current profile:",
+            currentProfile
+        );
+
+
+    } catch (error) {
 
         console.error(
-            "Profile error:",
+            "Profile loading error:",
             error
         );
 
-        return null;
+        currentProfile = null;
+
+    }
+
+}
+
+
+// ============================================================
+// LOAD DASHBOARD
+// ============================================================
+
+async function loadDashboard() {
+
+    if (!currentProfile) {
+        return;
+    }
+
+
+    showDashboard();
+
+
+    const role =
+        String(
+            currentProfile.role || ""
+        ).toUpperCase();
+
+
+    updateUserInterface();
+
+
+    if (role === "ADMIN") {
+
+        await loadAdminDashboard();
+
+    } else if (role === "OPERATOR") {
+
+        await loadOperatorDashboard();
+
+    } else if (role === "PATIENT") {
+
+        await loadPatientDashboard();
+
+    } else {
+
+        console.warn(
+            "Unknown user role:",
+            role
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// UPDATE USER INTERFACE
+// ============================================================
+
+function updateUserInterface() {
+
+    const role =
+        String(
+            currentProfile?.role || ""
+        ).toUpperCase();
+
+
+    const userNameElement =
+        document.getElementById("currentUserName");
+
+    const userRoleElement =
+        document.getElementById("currentUserRole");
+
+
+    if (userNameElement) {
+
+        userNameElement.textContent =
+            currentProfile?.full_name ||
+            currentProfile?.name ||
+            currentUser?.email ||
+            "User";
 
     }
 
 
-    return data;
+    if (userRoleElement) {
+
+        userRoleElement.textContent =
+            role;
+
+    }
+
+
+    const adminSection =
+        document.getElementById("adminSection");
+
+    const operatorSection =
+        document.getElementById("operatorSection");
+
+    const patientSection =
+        document.getElementById("patientSection");
+
+
+    if (adminSection) {
+
+        adminSection.style.display =
+            role === "ADMIN"
+                ? ""
+                : "none";
+
+    }
+
+
+    if (operatorSection) {
+
+        operatorSection.style.display =
+            role === "OPERATOR"
+                ? ""
+                : "none";
+
+    }
+
+
+    if (patientSection) {
+
+        patientSection.style.display =
+            role === "PATIENT"
+                ? ""
+                : "none";
+
+    }
 
 }
 
@@ -457,135 +547,113 @@ async function loadProfile() {
 
 async function loadAdminDashboard() {
 
-    await loadAllUsers();
+    console.log(
+        "Loading admin dashboard..."
+    );
 
-    await loadAllSubjects();
 
-    await loadAllScans();
-
-    await loadAdminReferences();
-
-    await loadScannerDevices();
+    await Promise.all([
+        loadAllUsers(),
+        loadAllSubjects(),
+        loadAllScans(),
+        loadAdminReferences(),
+        loadScannerDevices()
+    ]);
 
 }
 
 
 // ============================================================
-// ADMIN USERS
+// LOAD ALL USERS
 // ============================================================
 
 async function loadAllUsers() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
+    const container =
+        document.getElementById(
+            "adminUsersList"
+        );
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
             .from("profiles")
             .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
+            .order("created_at", {
+                ascending: false
+            });
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!data || data.length === 0) {
+
+            container.innerHTML =
+                "<p>No users found.</p>";
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            data.map(user => {
+
+                const name =
+                    escapeHTML(
+                        user.full_name ||
+                        user.name ||
+                        "Unnamed user"
+                    );
+
+                const email =
+                    escapeHTML(
+                        user.email ||
+                        ""
+                    );
+
+                const role =
+                    escapeHTML(
+                        user.role ||
+                        ""
+                    );
+
+
+                return `
+                    <div class="admin-user-row">
+                        <strong>${name}</strong>
+                        <span>${email}</span>
+                        <span>${role}</span>
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
 
         console.error(
-            "Users error:",
+            "Loading users failed:",
             error
         );
 
-        return;
+        if (container) {
 
-    }
-
-
-    const table =
-        document.getElementById(
-            "adminUsersTable"
-        );
-
-
-    if (!table) {
-
-        return;
-
-    }
-
-
-    table.innerHTML = "";
-
-
-    let operatorCount = 0;
-
-
-    (data || []).forEach(
-        function (user) {
-
-            if (
-                user.role ===
-                "operator"
-            ) {
-
-                operatorCount++;
-
-            }
-
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-
-            row.innerHTML = `
-
-                <td>
-                    ${escapeHTML(
-                        user.email || ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        user.full_name || ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        user.role || ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        user.created_at
-                    )}
-                </td>
-
-            `;
-
-
-            table.appendChild(row);
+            container.innerHTML =
+                "<p>Unable to load users.</p>";
 
         }
-    );
-
-
-    const adminUsers =
-        document.getElementById(
-            "adminUsers"
-        );
-
-
-    if (adminUsers) {
-
-        adminUsers.textContent =
-            operatorCount;
 
     }
 
@@ -593,55 +661,10 @@ async function loadAllUsers() {
 
 
 // ============================================================
-// ADMIN PATIENTS
+// LOAD ALL SUBJECTS
 // ============================================================
 
 async function loadAllSubjects() {
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("subjects")
-            .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "Patients error:",
-            error
-        );
-
-        return;
-
-    }
-
-
-    const subjects =
-        data || [];
-
-
-    const adminSubjects =
-        document.getElementById(
-            "adminSubjects"
-        );
-
-
-    if (adminSubjects) {
-
-        adminSubjects.textContent =
-            subjects.length;
-
-    }
-
 
     const container =
         document.getElementById(
@@ -649,139 +672,200 @@ async function loadAllSubjects() {
         );
 
 
-    if (!container) {
+    try {
 
-        return;
-
-    }
-
-
-    container.innerHTML = "";
-
-
-    if (!subjects.length) {
-
-        container.innerHTML =
-            `<div class="empty">
-                No patients registered.
-             </div>`;
-
-        return;
-
-    }
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("*")
+            .order("created_at", {
+                ascending: false
+            });
 
 
-    subjects.forEach(
-        function (patient) {
-
-            const div =
-                document.createElement(
-                    "div"
-                );
+        if (error) {
+            throw error;
+        }
 
 
-            div.className =
-                "patient-card";
+        if (!container) {
+            return;
+        }
 
 
-            const patientId =
-                patient.patient_id ||
-                patient.subject_id ||
-                "";
+        if (!data || data.length === 0) {
 
+            container.innerHTML =
+                "<p>No patients found.</p>";
 
-            div.innerHTML = `
-
-                <h3>
-                    ${escapeHTML(
-                        patient.name ||
-                        "Unnamed Patient"
-                    )}
-                </h3>
-
-                <p>
-                    Patient ID:
-                    ${escapeHTML(
-                        patientId
-                    )}
-                </p>
-
-                <p>
-                    Age:
-                    ${escapeHTML(
-                        String(
-                            patient.age ??
-                            ""
-                        )
-                    )}
-                </p>
-
-                <p>
-                    Gender:
-                    ${escapeHTML(
-                        patient.gender ||
-                        ""
-                    )}
-                </p>
-
-                <p>
-                    Linking Code:
-                    <strong>
-                        ${escapeHTML(
-                            patient.linking_code ||
-                            ""
-                        )}
-                    </strong>
-                </p>
-
-                <p>
-                    Created:
-                    ${formatDate(
-                        patient.created_at
-                    )}
-                </p>
-
-                <div style="margin-top:10px;">
-
-                    <button
-                        class="danger"
-                        onclick="deletePatient('${escapeHTMLAttribute(patient.id)}')"
-                    >
-                        Delete Patient
-                    </button>
-
-                </div>
-
-            `;
-
-
-            container.appendChild(div);
+            return;
 
         }
-    );
+
+
+        container.innerHTML =
+            data.map(subject => {
+
+                const id =
+                    escapeHTML(
+                        subject.subject_id ||
+                        subject.patient_id ||
+                        subject.id ||
+                        ""
+                    );
+
+                const name =
+                    escapeHTML(
+                        subject.name ||
+                        "Unnamed patient"
+                    );
+
+                const age =
+                    subject.age ??
+                    "—";
+
+                const gender =
+                    escapeHTML(
+                        subject.gender ||
+                        "—"
+                    );
+
+                const linkingCode =
+                    escapeHTML(
+                        subject.linking_code ||
+                        "—"
+                    );
+
+                const databaseId =
+                    escapeHTML(
+                        subject.id ||
+                        ""
+                    );
+
+
+                return `
+                    <div class="admin-patient-row">
+
+                        <div>
+                            <strong>${name}</strong>
+                            <div>Patient ID: ${id}</div>
+                            <div>Age: ${age}</div>
+                            <div>Gender: ${gender}</div>
+                            <div>Linking Code: ${linkingCode}</div>
+                        </div>
+
+                        <div>
+                            <button
+                                type="button"
+                                onclick="selectAdminPatient('${databaseId}')"
+                            >
+                                View
+                            </button>
+
+                            <button
+                                type="button"
+                                class="danger"
+                                onclick="deletePatient('${databaseId}')"
+                            >
+                                Delete
+                            </button>
+                        </div>
+
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
+
+        console.error(
+            "Loading admin patients failed:",
+            error
+        );
+
+        if (container) {
+
+            container.innerHTML =
+                "<p>Unable to load patients.</p>";
+
+        }
+
+    }
 
 }
 
 
 // ============================================================
-// ADMIN ADD PATIENT
+// ADMIN SELECT PATIENT
 // ============================================================
 
-function openAdminPatientModal() {
+async function selectAdminPatient(id) {
 
-    if (
-        !currentProfile ||
-        currentProfile.role !== "admin"
-    ) {
+    if (!id) {
+        return;
+    }
 
-        alert(
-            "Only an admin can add patients."
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            alert(
+                "Patient not found."
+            );
+
+            return;
+
+        }
+
+
+        currentPatient = data;
+
+        showPatientDetails(
+            data
         );
 
-        return;
+
+    } catch (error) {
+
+        console.error(
+            "Admin patient selection error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to load patient."
+        );
 
     }
 
+}
+
+
+// ============================================================
+// OPEN ADMIN PATIENT MODAL
+// ============================================================
+
+function openAdminPatientModal() {
 
     const modal =
         document.getElementById(
@@ -790,22 +874,56 @@ function openAdminPatientModal() {
 
 
     if (!modal) {
-
-        alert(
-            "Admin patient form was not found in index.html."
-        );
-
         return;
-
     }
 
 
-    modal
-        .classList
-        .remove("hidden");
+    const nameInput =
+        document.getElementById(
+            "adminSubjectName"
+        );
+
+    const ageInput =
+        document.getElementById(
+            "adminSubjectAge"
+        );
+
+    const genderInput =
+        document.getElementById(
+            "adminSubjectGender"
+        );
+
+    const message =
+        document.getElementById(
+            "adminSubjectMessage"
+        );
+
+
+    if (nameInput) {
+        nameInput.value = "";
+    }
+
+    if (ageInput) {
+        ageInput.value = "";
+    }
+
+    if (genderInput) {
+        genderInput.value = "";
+    }
+
+    if (message) {
+        message.textContent = "";
+    }
+
+
+    modal.style.display = "flex";
 
 }
 
+
+// ============================================================
+// CLOSE ADMIN PATIENT MODAL
+// ============================================================
 
 function closeAdminPatientModal() {
 
@@ -816,25 +934,22 @@ function closeAdminPatientModal() {
 
 
     if (modal) {
-
-        modal
-            .classList
-            .add("hidden");
-
+        modal.style.display = "none";
     }
 
 }
 
 
+// ============================================================
+// CREATE ADMIN PATIENT
+// ============================================================
+
 async function createAdminPatient() {
 
-    if (
-        !currentProfile ||
-        currentProfile.role !== "admin"
-    ) {
+    if (!isAdmin()) {
 
         alert(
-            "Only an admin can add patients."
+            "Administrator access required."
         );
 
         return;
@@ -842,33 +957,20 @@ async function createAdminPatient() {
     }
 
 
-    const name =
-        document
-            .getElementById(
-                "adminSubjectName"
-            )
-            ?.value
-            .trim();
-
-
-    const age =
-        parseInt(
-            document
-                .getElementById(
-                    "adminSubjectAge"
-                )
-                ?.value,
-            10
+    const nameInput =
+        document.getElementById(
+            "adminSubjectName"
         );
 
+    const ageInput =
+        document.getElementById(
+            "adminSubjectAge"
+        );
 
-    const gender =
-        document
-            .getElementById(
-                "adminSubjectGender"
-            )
-            ?.value;
-
+    const genderInput =
+        document.getElementById(
+            "adminSubjectGender"
+        );
 
     const message =
         document.getElementById(
@@ -876,16 +978,47 @@ async function createAdminPatient() {
         );
 
 
+    const name =
+        nameInput
+            ? nameInput.value.trim()
+            : "";
+
+    const age =
+        ageInput
+            ? parseInt(
+                ageInput.value,
+                10
+            )
+            : NaN;
+
+    const gender =
+        genderInput
+            ? genderInput.value.trim()
+            : "";
+
+
+    if (!name) {
+
+        setMessage(
+            message,
+            "Patient name is required.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
     if (
-        !name ||
         !Number.isFinite(age) ||
-        age <= 0 ||
-        !gender
+        age < 1 ||
+        age > 120
     ) {
 
         setMessage(
             message,
-            "Please enter patient name, age and gender.",
+            "Enter a valid age.",
             "error"
         );
 
@@ -904,152 +1037,93 @@ async function createAdminPatient() {
     try {
 
         const patientId =
-            generatePatientId();
-
+            await generatePatientId();
 
         const linkingCode =
             await generateUniqueLinkingCode();
 
 
+        const payload = {
+
+            user_id:
+                currentUser.id,
+
+            subject_id:
+                patientId,
+
+            patient_id:
+                patientId,
+
+            name:
+                name,
+
+            age:
+                age,
+
+            gender:
+                gender,
+
+            linking_code:
+                linkingCode,
+
+            account_linked:
+                false
+
+        };
+
+
         const {
             data,
             error
-        } =
-            await supabaseClient
-                .from("subjects")
-                .insert({
-
-                    user_id:
-                        currentUser.id,
-
-                    subject_id:
-                        patientId,
-
-                    patient_id:
-                        patientId,
-
-                    name:
-                        name,
-
-                    age:
-                        age,
-
-                    gender:
-                        gender,
-
-                    linking_code:
-                        linkingCode,
-
-                    account_linked:
-                        false
-
-                })
-                .select()
-                .single();
+        } = await supabaseClient
+            .from("subjects")
+            .insert(payload)
+            .select()
+            .single();
 
 
         if (error) {
-
-            console.error(
-                "Admin patient creation error:",
-                error
-            );
-
-            setMessage(
-                message,
-                error.message,
-                "error"
-            );
-
-            return;
-
+            throw error;
         }
 
 
-        const createdPatientInfo =
-            document.getElementById(
-                "createdPatientInfo"
-            );
+        currentPatient = data;
 
 
-        if (createdPatientInfo) {
+        if (message) {
 
-            createdPatientInfo.innerHTML = `
-
-                <p>
-                    Patient has been registered successfully.
-                </p>
-
-                <p>
-                    Patient ID:
-                </p>
-
-                <div class="code-display">
-                    ${escapeHTML(
-                        patientId
-                    )}
-                </div>
-
-                <p>
-                    Patient Linking Code:
-                </p>
-
-                <div class="code-display">
-                    ${escapeHTML(
-                        linkingCode
-                    )}
-                </div>
-
+            message.innerHTML = `
+                <strong>Patient created successfully.</strong><br>
+                Patient ID: ${escapeHTML(patientId)}<br>
+                Linking Code: ${escapeHTML(linkingCode)}
             `;
 
         }
 
 
-        const patientModal =
-            document.getElementById(
-                "patientModal"
-            );
-
-
-        if (patientModal) {
-
-            patientModal
-                .classList
-                .remove("hidden");
-
-        }
-
-
-        clearAdminPatientForm();
-
-
-        closeAdminPatientModal();
-
-
-        setMessage(
-            message,
-            "Patient registered successfully.",
-            "success"
-        );
-
-
         await loadAllSubjects();
 
+        await loadSubjects();
 
-    }
 
-    catch (error) {
+        setTimeout(() => {
+
+            closeAdminPatientModal();
+
+        }, 3500);
+
+
+    } catch (error) {
 
         console.error(
-            "Admin patient creation error:",
+            "Admin patient creation failed:",
             error
         );
-
 
         setMessage(
             message,
             error.message ||
-            "Could not create patient.",
+            "Unable to create patient.",
             "error"
         );
 
@@ -1059,63 +1133,15 @@ async function createAdminPatient() {
 
 
 // ============================================================
-// CLEAR ADMIN PATIENT FORM
-// ============================================================
-
-function clearAdminPatientForm() {
-
-    const name =
-        document.getElementById(
-            "adminSubjectName"
-        );
-
-    const age =
-        document.getElementById(
-            "adminSubjectAge"
-        );
-
-    const gender =
-        document.getElementById(
-            "adminSubjectGender"
-        );
-
-
-    if (name) {
-
-        name.value = "";
-
-    }
-
-
-    if (age) {
-
-        age.value = "";
-
-    }
-
-
-    if (gender) {
-
-        gender.value = "";
-
-    }
-
-}
-
-
-// ============================================================
-// ADMIN DELETE PATIENT
+// DELETE PATIENT
 // ============================================================
 
 async function deletePatient(id) {
 
-    if (
-        !currentProfile ||
-        currentProfile.role !== "admin"
-    ) {
+    if (!isAdmin()) {
 
         alert(
-            "Only an admin can delete patients."
+            "Administrator access required."
         );
 
         return;
@@ -1124,91 +1150,48 @@ async function deletePatient(id) {
 
 
     if (!id) {
-
-        alert(
-            "Invalid patient ID."
-        );
-
         return;
-
     }
 
 
     const confirmed =
         confirm(
-            "Are you sure you want to delete this patient?\n\n" +
-            "The patient's scan measurements will also be deleted.\n\n" +
-            "This action cannot be undone."
+            "Delete this patient and their scan measurements?\n\nThis action cannot be undone."
         );
 
 
     if (!confirmed) {
-
         return;
-
     }
 
 
     try {
 
-        // Delete patient's scans first.
+        // Delete associated scan measurements first.
         const {
-            error: scanDeleteError
-        } =
-            await supabaseClient
-                .from(
-                    "scan_measurements"
-                )
-                .delete()
-                .eq(
-                    "subject_id",
-                    id
-                );
+            error: scanError
+        } = await supabaseClient
+            .from("scan_measurements")
+            .delete()
+            .eq("subject_id", id);
 
 
-        if (scanDeleteError) {
-
-            console.error(
-                "Patient scan deletion error:",
-                scanDeleteError
-            );
-
-            alert(
-                "Could not delete the patient's scan measurements:\n\n" +
-                scanDeleteError.message
-            );
-
-            return;
-
+        if (scanError) {
+            throw scanError;
         }
 
 
+        // Delete patient.
         const {
-            error
-        } =
-            await supabaseClient
-                .from("subjects")
-                .delete()
-                .eq(
-                    "id",
-                    id
-                );
+            error: subjectError
+        } = await supabaseClient
+            .from("subjects")
+            .delete()
+            .eq("id", id);
 
 
-        if (error) {
-
-            console.error(
-                "Patient deletion error:",
-                error
-            );
-
-            alert(
-                "Could not delete patient:\n\n" +
-                error.message
-            );
-
-            return;
-
+        if (subjectError) {
+            throw subjectError;
         }
 
 
@@ -1217,11 +1200,7 @@ async function deletePatient(id) {
             currentPatient.id === id
         ) {
 
-            currentPatient =
-                null;
-
-            currentMeasurementSide =
-                null;
+            currentPatient = null;
 
         }
 
@@ -1235,20 +1214,17 @@ async function deletePatient(id) {
 
         await loadAllScans();
 
-        await loadScans();
 
-
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "Delete patient error:",
+            "Patient deletion failed:",
             error
         );
 
         alert(
-            "An unexpected error occurred while deleting the patient."
+            error.message ||
+            "Unable to delete patient."
         );
 
     }
@@ -1257,253 +1233,356 @@ async function deletePatient(id) {
 
 
 // ============================================================
-// ADMIN PATIENT SCANS
+// LOAD ALL SCANS - ADMIN
 // ============================================================
 
 async function loadAllScans() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "scan_measurements"
-            )
-            .select(`
-                *,
-                subjects (
-                    name,
-                    patient_id,
-                    subject_id
-                )
-            `)
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "Scan error:",
-            error
-        );
-
-        return;
-
-    }
-
-
-    const scans =
-        data || [];
-
-
-    const adminScans =
-        document.getElementById(
-            "adminScans"
-        );
-
-
-    if (adminScans) {
-
-        adminScans.textContent =
-            scans.length;
-
-    }
-
-
-    const table =
+    const container =
         document.getElementById(
             "adminScansTable"
         );
 
 
-    if (!table) {
+    try {
 
-        return;
-
-    }
-
-
-    table.innerHTML = "";
-
-
-    if (!scans.length) {
-
-        table.innerHTML =
-            `<tr>
-                <td colspan="11">
-                    No patient measurements found.
-                </td>
-             </tr>`;
-
-        return;
-
-    }
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_measurements")
+            .select("*")
+            .order("created_at", {
+                ascending: false
+            });
 
 
-    scans.forEach(
-        function (scan) {
-
-            const patient =
-                scan.subjects || {};
+        if (error) {
+            throw error;
+        }
 
 
-            const row =
-                document.createElement(
-                    "tr"
-                );
+        if (!container) {
+            return;
+        }
 
 
-            row.innerHTML = `
+        if (!data || data.length === 0) {
 
-                <td>
-                    ${escapeHTML(
-                        scan.scan_id || ""
-                    )}
-                </td>
+            container.innerHTML =
+                "<p>No scans found.</p>";
 
-                <td>
-                    ${escapeHTML(
-                        patient.name || ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        patient.patient_id ||
-                        patient.subject_id ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        scan.measurement_side ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.f0
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.rms
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.q_factor
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.bandwidth
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        scan.comparison_status ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        scan.created_at
-                    )}
-                </td>
-
-                <td>
-
-                    <button
-                        class="danger"
-                        onclick="deletePatientMeasurement('${escapeHTMLAttribute(scan.id)}')"
-                    >
-                        Delete
-                    </button>
-
-                </td>
-
-            `;
-
-
-            table.appendChild(row);
+            return;
 
         }
-    );
+
+
+        container.innerHTML = `
+            <div class="scan-table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Scan ID</th>
+                            <th>Patient</th>
+                            <th>Side</th>
+                            <th>f0</th>
+                            <th>RMS</th>
+                            <th>Q</th>
+                            <th>Bandwidth</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        ${data.map(scan => `
+
+                            <tr>
+
+                                <td>
+                                    ${escapeHTML(
+                                        scan.scan_id || ""
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${escapeHTML(
+                                        scan.subject_id || ""
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${escapeHTML(
+                                        scan.measurement_side || ""
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${formatNumber(
+                                        scan.f0,
+                                        2
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${formatNumber(
+                                        scan.rms,
+                                        3
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${formatNumber(
+                                        scan.q_factor,
+                                        3
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${formatNumber(
+                                        scan.bandwidth,
+                                        2
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${formatDate(
+                                        scan.created_at
+                                    )}
+                                </td>
+
+                            </tr>
+
+                        `).join("")}
+
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+
+    } catch (error) {
+
+        console.error(
+            "Admin scans loading failed:",
+            error
+        );
+
+        if (container) {
+
+            container.innerHTML =
+                "<p>Unable to load scans.</p>";
+
+        }
+
+    }
 
 }
 
 
 // ============================================================
-// ADMIN REFERENCE MEASUREMENTS
+// LOAD ADMIN REFERENCES
 // ============================================================
 
 async function loadAdminReferences() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "reference_measurements"
-            )
+    const container =
+        document.getElementById(
+            "adminReferencesList"
+        );
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("reference_groups")
             .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
+            .order("created_at", {
+                ascending: false
+            });
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!data || data.length === 0) {
+
+            container.innerHTML =
+                "<p>No reference groups found.</p>";
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            data.map(group => {
+
+                return `
+                    <div class="reference-row">
+
+                        <strong>
+                            ${escapeHTML(
+                                group.name ||
+                                "Reference Group"
+                            )}
+                        </strong>
+
+                        <span>
+                            Age:
+                            ${escapeHTML(
+                                String(
+                                    group.age_min ??
+                                    ""
+                                )
+                            )}
+                            -
+                            ${escapeHTML(
+                                String(
+                                    group.age_max ??
+                                    ""
+                                )
+                            )}
+                        </span>
+
+                        <span>
+                            Gender:
+                            ${escapeHTML(
+                                group.gender ||
+                                "All"
+                            )}
+                        </span>
+
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
 
         console.error(
-            "Reference error:",
+            "Admin references error:",
             error
         );
 
-        return;
+        if (container) {
+
+            container.innerHTML =
+                "<p>Unable to load references.</p>";
+
+        }
 
     }
 
-
-    const references =
-        data || [];
+}
 
 
-    const adminReferences =
+// ============================================================
+// LOAD SCANNER DEVICES
+// ============================================================
+
+async function loadScannerDevices() {
+
+    const container =
         document.getElementById(
-            "adminReferences"
+            "scannerDevicesList"
         );
 
 
-    if (adminReferences) {
+    try {
 
-        adminReferences.textContent =
-            references.length;
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scanner_devices")
+            .select("*")
+            .order("created_at", {
+                ascending: false
+            });
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!data || data.length === 0) {
+
+            container.innerHTML =
+                "<p>No scanner devices found.</p>";
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            data.map(device => {
+
+                const status =
+                    device.is_active === false
+                        ? "Inactive"
+                        : "Active";
+
+
+                return `
+                    <div class="scanner-device-row">
+
+                        <strong>
+                            ${escapeHTML(
+                                device.device_id ||
+                                "Unknown"
+                            )}
+                        </strong>
+
+                        <span>
+                            ${status}
+                        </span>
+
+                        <span>
+                            ${escapeHTML(
+                                device.name ||
+                                ""
+                            )}
+                        </span>
+
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
+
+        console.error(
+            "Scanner devices loading failed:",
+            error
+        );
+
+        if (container) {
+
+            container.innerHTML =
+                "<p>Unable to load scanner devices.</p>";
+
+        }
 
     }
-
-
-    renderReferenceTable(
-        references,
-        true
-    );
 
 }
 
@@ -1514,55 +1593,27 @@ async function loadAdminReferences() {
 
 async function loadOperatorDashboard() {
 
+    console.log(
+        "Loading operator dashboard..."
+    );
+
+
     await loadSubjects();
 
     await loadScans();
 
-    await loadReferenceGroups();
+    updateScannerStatus(
+        "Ready"
+    );
 
 }
 
 
 // ============================================================
-// OPERATOR PATIENTS
+// LOAD OPERATOR PATIENTS
 // ============================================================
 
 async function loadSubjects() {
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("subjects")
-            .select("*")
-            .eq(
-                "user_id",
-                currentUser.id
-            )
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "Operator patients error:",
-            error
-        );
-
-        return;
-
-    }
-
-
-    const subjects =
-        data || [];
-
 
     const container =
         document.getElementById(
@@ -1570,100 +1621,120 @@ async function loadSubjects() {
         );
 
 
-    if (!container) {
-
+    if (!currentUser) {
         return;
-
     }
 
 
-    container.innerHTML = "";
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .order("created_at", {
+                ascending: false
+            });
 
 
-    if (!subjects.length) {
-
-        container.innerHTML =
-            `<div class="empty">
-                No patients registered yet.
-             </div>`;
-
-        return;
-
-    }
+        if (error) {
+            throw error;
+        }
 
 
-    subjects.forEach(
-        function (patient) {
-
-            const div =
-                document.createElement(
-                    "div"
-                );
+        if (!container) {
+            return;
+        }
 
 
-            div.className =
-                "patient-card";
+        if (!data || data.length === 0) {
 
+            container.innerHTML =
+                "<p>No patients found.</p>";
 
-            div.innerHTML = `
-
-                <h3>
-                    ${escapeHTML(
-                        patient.name ||
-                        "Unnamed Patient"
-                    )}
-                </h3>
-
-                <p>
-                    Patient ID:
-                    ${escapeHTML(
-                        patient.patient_id ||
-                        patient.subject_id ||
-                        ""
-                    )}
-                </p>
-
-                <p>
-                    Age:
-                    ${escapeHTML(
-                        String(
-                            patient.age ??
-                            ""
-                        )
-                    )}
-                </p>
-
-                <p>
-                    Gender:
-                    ${escapeHTML(
-                        patient.gender ||
-                        ""
-                    )}
-                </p>
-
-                <p>
-                    Linking Code:
-                    <strong>
-                        ${escapeHTML(
-                            patient.linking_code ||
-                            ""
-                        )}
-                    </strong>
-                </p>
-
-                <button
-                    onclick='selectPatient(${safeJSONString(patient)})'
-                >
-                    Select for Scan
-                </button>
-
-            `;
-
-
-            container.appendChild(div);
+            return;
 
         }
-    );
+
+
+        container.innerHTML =
+            data.map(patient => {
+
+                const databaseId =
+                    escapeHTML(
+                        patient.id || ""
+                    );
+
+                const name =
+                    escapeHTML(
+                        patient.name ||
+                        "Unnamed"
+                    );
+
+                const patientId =
+                    escapeHTML(
+                        patient.subject_id ||
+                        patient.patient_id ||
+                        ""
+                    );
+
+                const age =
+                    patient.age ??
+                    "—";
+
+                const gender =
+                    escapeHTML(
+                        patient.gender ||
+                        "—"
+                    );
+
+
+                return `
+                    <div
+                        class="patient-row"
+                        onclick="selectPatient('${databaseId}')"
+                    >
+
+                        <strong>
+                            ${name}
+                        </strong>
+
+                        <span>
+                            ID: ${patientId}
+                        </span>
+
+                        <span>
+                            Age: ${age}
+                        </span>
+
+                        <span>
+                            ${gender}
+                        </span>
+
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
+
+        console.error(
+            "Loading patients failed:",
+            error
+        );
+
+        if (container) {
+
+            container.innerHTML =
+                "<p>Unable to load patients.</p>";
+
+        }
+
+    }
 
 }
 
@@ -1674,50 +1745,79 @@ async function loadSubjects() {
 
 async function createPatient() {
 
-    const name =
-        document
-            .getElementById(
-                "subjectName"
-            )
-            ?.value
-            .trim();
+    if (!isOperator() && !isAdmin()) {
 
-
-    const age =
-        parseInt(
-            document
-                .getElementById(
-                    "subjectAge"
-                )
-                ?.value,
-            10
+        alert(
+            "Operator access required."
         );
 
+        return;
 
-    const gender =
-        document
-            .getElementById(
-                "subjectGender"
-            )
-            ?.value;
+    }
 
+
+    const nameInput =
+        document.getElementById(
+            "subjectName"
+        );
+
+    const ageInput =
+        document.getElementById(
+            "subjectAge"
+        );
+
+    const genderInput =
+        document.getElementById(
+            "subjectGender"
+        );
 
     const message =
         document.getElementById(
-            "subjectMessage"
+            "patientMessage"
         );
 
 
+    const name =
+        nameInput
+            ? nameInput.value.trim()
+            : "";
+
+    const age =
+        ageInput
+            ? parseInt(
+                ageInput.value,
+                10
+            )
+            : NaN;
+
+    const gender =
+        genderInput
+            ? genderInput.value.trim()
+            : "";
+
+
+    if (!name) {
+
+        setMessage(
+            message,
+            "Patient name is required.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
     if (
-        !name ||
         !Number.isFinite(age) ||
-        age <= 0 ||
-        !gender
+        age < 1 ||
+        age > 120
     ) {
 
         setMessage(
             message,
-            "Please fill in all patient details.",
+            "Please enter a valid age.",
             "error"
         );
 
@@ -1728,9 +1828,15 @@ async function createPatient() {
 
     try {
 
-        const patientId =
-            generatePatientId();
+        setMessage(
+            message,
+            "Creating patient...",
+            "info"
+        );
 
+
+        const patientId =
+            await generatePatientId();
 
         const linkingCode =
             await generateUniqueLinkingCode();
@@ -1739,154 +1845,68 @@ async function createPatient() {
         const {
             data,
             error
-        } =
-            await supabaseClient
-                .from("subjects")
-                .insert({
+        } = await supabaseClient
+            .from("subjects")
+            .insert({
 
-                    user_id:
-                        currentUser.id,
+                user_id:
+                    currentUser.id,
 
-                    subject_id:
-                        patientId,
+                subject_id:
+                    patientId,
 
-                    patient_id:
-                        patientId,
+                patient_id:
+                    patientId,
 
-                    name:
-                        name,
+                name:
+                    name,
 
-                    age:
-                        age,
+                age:
+                    age,
 
-                    gender:
-                        gender,
+                gender:
+                    gender,
 
-                    linking_code:
-                        linkingCode,
+                linking_code:
+                    linkingCode,
 
-                    account_linked:
-                        false
+                account_linked:
+                    false
 
-                })
-                .select()
-                .single();
+            })
+            .select()
+            .single();
 
 
         if (error) {
-
-            console.error(
-                "Patient creation error:",
-                error
-            );
-
-            setMessage(
-                message,
-                error.message,
-                "error"
-            );
-
-            return;
-
+            throw error;
         }
 
 
-        const createdPatientInfo =
-            document.getElementById(
-                "createdPatientInfo"
-            );
-
-
-        if (createdPatientInfo) {
-
-            createdPatientInfo.innerHTML = `
-
-                <p>
-                    Patient has been registered successfully.
-                </p>
-
-                <p>
-                    Patient ID:
-                </p>
-
-                <div class="code-display">
-                    ${escapeHTML(
-                        patientId
-                    )}
-                </div>
-
-                <p>
-                    Patient Linking Code:
-                </p>
-
-                <div class="code-display">
-                    ${escapeHTML(
-                        linkingCode
-                    )}
-                </div>
-
-                <p>
-                    Give this linking code to the patient
-                    so they can view their results.
-                </p>
-
-            `;
-
-        }
-
-
-        document
-            .getElementById(
-                "patientModal"
-            )
-            ?.classList
-            .remove("hidden");
-
-
-        document
-            .getElementById(
-                "subjectName"
-            )
-            .value = "";
-
-
-        document
-            .getElementById(
-                "subjectAge"
-            )
-            .value = "";
-
-
-        document
-            .getElementById(
-                "subjectGender"
-            )
-            .value = "";
+        currentPatient = data;
 
 
         setMessage(
             message,
-            "Patient registered successfully.",
+            `Patient created. Patient ID: ${patientId}. Linking Code: ${linkingCode}`,
             "success"
         );
 
 
         await loadSubjects();
 
-    }
 
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "Create patient error:",
             error
         );
 
-
         setMessage(
             message,
             error.message ||
-            "Could not create patient.",
+            "Unable to create patient.",
             "error"
         );
 
@@ -1899,71 +1919,96 @@ async function createPatient() {
 // GENERATE PATIENT ID
 // ============================================================
 
-function generatePatientId() {
+async function generatePatientId() {
 
-    const random =
-        Math.floor(
-            10000 +
-            Math.random() * 90000
-        );
+    for (let attempt = 0; attempt < 20; attempt++) {
 
-
-    return `PAT-${random}`;
-
-}
-
-
-// ============================================================
-// GENERATE UNIQUE 6-DIGIT LINKING CODE
-// ============================================================
-
-async function generateUniqueLinkingCode() {
-
-    for (
-        let attempt = 0;
-        attempt < 20;
-        attempt++
-    ) {
-
-        const code =
-            String(
-                Math.floor(
-                    100000 +
-                    Math.random() * 900000
-                )
+        const randomPart =
+            Math.floor(
+                100000 +
+                Math.random() * 900000
             );
+
+
+        const patientId =
+            `ABS-P-${randomPart}`;
 
 
         const {
             data,
             error
-        } =
-            await supabaseClient
-                .from("subjects")
-                .select("id")
-                .eq(
-                    "linking_code",
-                    code
-                )
-                .limit(1);
+        } = await supabaseClient
+            .from("subjects")
+            .select("id")
+            .eq("subject_id", patientId)
+            .limit(1);
 
 
         if (error) {
+            throw error;
+        }
 
-            console.error(
-                "Linking code check error:",
-                error
-            );
 
-            continue;
+        if (!data || data.length === 0) {
+
+            return patientId;
+
+        }
+
+    }
+
+
+    throw new Error(
+        "Unable to generate a unique patient ID."
+    );
+
+}
+
+
+// ============================================================
+// GENERATE UNIQUE LINKING CODE
+// ============================================================
+
+async function generateUniqueLinkingCode() {
+
+    const characters =
+        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+
+    for (let attempt = 0; attempt < 30; attempt++) {
+
+        let code = "";
+
+
+        for (let i = 0; i < 8; i++) {
+
+            code +=
+                characters[
+                    Math.floor(
+                        Math.random() *
+                        characters.length
+                    )
+                ];
 
         }
 
 
-        if (
-            !data ||
-            data.length === 0
-        ) {
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("id")
+            .eq("linking_code", code)
+            .limit(1);
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data || data.length === 0) {
 
             return code;
 
@@ -1973,131 +2018,190 @@ async function generateUniqueLinkingCode() {
 
 
     throw new Error(
-        "Could not generate a unique linking code."
+        "Unable to generate a unique linking code."
     );
 
 }
 
 
 // ============================================================
-// SELECT PATIENT FOR SCAN
+// SELECT PATIENT
 // ============================================================
 
-function selectPatient(patient) {
+async function selectPatient(id) {
 
-    currentPatient =
-        patient;
-
-    currentMeasurementSide =
-        null;
-
-
-    const preparation =
-        document.getElementById(
-            "scanPreparation"
-        );
-
-
-    if (preparation) {
-
-        preparation
-            .classList
-            .remove("hidden");
-
+    if (!id) {
+        return;
     }
 
 
-    const selectedPatientInfo =
-        document.getElementById(
-            "selectedPatientInfo"
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("subjects")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            alert(
+                "Patient not found."
+            );
+
+            return;
+
+        }
+
+
+        currentPatient = data;
+
+        currentMeasurementSide = null;
+
+
+        showPatientDetails(
+            data
         );
 
 
-    if (selectedPatientInfo) {
-
-        selectedPatientInfo.innerHTML = `
-
-            <div class="patient-card selected-patient">
-
-                <h3>
-                    ${escapeHTML(
-                        patient.name || ""
-                    )}
-                </h3>
-
-                <p>
-                    Patient ID:
-                    ${escapeHTML(
-                        patient.patient_id ||
-                        patient.subject_id ||
-                        ""
-                    )}
-                </p>
-
-                <p>
-                    Age:
-                    ${escapeHTML(
-                        String(
-                            patient.age ??
-                            ""
-                        )
-                    )}
-                </p>
-
-                <p>
-                    Gender:
-                    ${escapeHTML(
-                        patient.gender ||
-                        ""
-                    )}
-                </p>
-
-            </div>
-
-        `;
-
-    }
+        const scannerSection =
+            document.getElementById(
+                "patientScannerSection"
+            );
 
 
-    const selectedSideText =
-        document.getElementById(
-            "selectedSideText"
+        if (scannerSection) {
+            scannerSection.style.display = "";
+        }
+
+
+        await loadScans(
+            data.id
         );
 
 
-    if (selectedSideText) {
+    } catch (error) {
 
-        selectedSideText.textContent =
-            "No side selected.";
+        console.error(
+            "Patient selection error:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "Unable to select patient."
+        );
 
     }
-
-
-    document
-        .getElementById(
-            "leftSideButton"
-        )
-        ?.classList
-        .remove("selected");
-
-
-    document
-        .getElementById(
-            "rightSideButton"
-        )
-        ?.classList
-        .remove("selected");
-
-
-    preparation?.scrollIntoView({
-        behavior: "smooth"
-    });
 
 }
 
 
 // ============================================================
-// SELECT LEFT / RIGHT
+// SHOW PATIENT DETAILS
+// ============================================================
+
+function showPatientDetails(patient) {
+
+    const modal =
+        document.getElementById(
+            "patientModal"
+        );
+
+
+    const nameElement =
+        document.getElementById(
+            "patientModalName"
+        );
+
+    const idElement =
+        document.getElementById(
+            "patientModalId"
+        );
+
+    const ageElement =
+        document.getElementById(
+            "patientModalAge"
+        );
+
+    const genderElement =
+        document.getElementById(
+            "patientModalGender"
+        );
+
+    const linkingElement =
+        document.getElementById(
+            "patientModalLinkingCode"
+        );
+
+
+    if (nameElement) {
+
+        nameElement.textContent =
+            patient.name ||
+            "Unnamed patient";
+
+    }
+
+
+    if (idElement) {
+
+        idElement.textContent =
+            patient.subject_id ||
+            patient.patient_id ||
+            "";
+
+    }
+
+
+    if (ageElement) {
+
+        ageElement.textContent =
+            patient.age ??
+            "—";
+
+    }
+
+
+    if (genderElement) {
+
+        genderElement.textContent =
+            patient.gender ||
+            "—";
+
+    }
+
+
+    if (linkingElement) {
+
+        linkingElement.textContent =
+            patient.linking_code ||
+            "—";
+
+    }
+
+
+    if (modal) {
+
+        modal.style.display =
+            "flex";
+
+    }
+
+}
+
+
+// ============================================================
+// SELECT MEASUREMENT SIDE
 // ============================================================
 
 function selectMeasurementSide(side) {
@@ -2113,13 +2217,19 @@ function selectMeasurementSide(side) {
     }
 
 
+    const normalizedSide =
+        String(side || "")
+            .trim()
+            .toUpperCase();
+
+
     if (
-        side !== "Left" &&
-        side !== "Right"
+        normalizedSide !== "LEFT" &&
+        normalizedSide !== "RIGHT"
     ) {
 
         alert(
-            "Invalid measurement side."
+            "Please select LEFT or RIGHT."
         );
 
         return;
@@ -2128,220 +2238,50 @@ function selectMeasurementSide(side) {
 
 
     currentMeasurementSide =
-        side;
+        normalizedSide;
 
 
-    const selectedSideText =
+    const sideDisplay =
         document.getElementById(
-            "selectedSideText"
+            "selectedMeasurementSide"
         );
 
 
-    if (selectedSideText) {
+    if (sideDisplay) {
 
-        selectedSideText.textContent =
-            `Selected measurement side: ${side}`;
+        sideDisplay.textContent =
+            normalizedSide;
 
     }
 
 
-    document
-        .getElementById(
+    const leftButton =
+        document.getElementById(
             "leftSideButton"
-        )
-        ?.classList
-        .remove("selected");
+        );
 
-
-    document
-        .getElementById(
-            "rightSideButton"
-        )
-        ?.classList
-        .remove("selected");
-
-
-    if (side === "Left") {
-
-        document
-            .getElementById(
-                "leftSideButton"
-            )
-            ?.classList
-            .add("selected");
-
-    }
-
-
-    if (side === "Right") {
-
-        document
-            .getElementById(
-                "rightSideButton"
-            )
-            ?.classList
-            .add("selected");
-
-    }
-
-}
-
-
-// ============================================================
-// ESP32 BASE URL
-// ============================================================
-
-function getESP32BaseUrl() {
-
-    const input =
+    const rightButton =
         document.getElementById(
-            "esp32BaseUrl"
+            "rightSideButton"
         );
 
 
-    let url =
-        input
-            ? input.value.trim()
-            : esp32BaseUrl;
+    if (leftButton) {
 
-
-    if (!url) {
-
-        throw new Error(
-            "Enter the ESP32 IP address first."
+        leftButton.classList.toggle(
+            "active",
+            normalizedSide === "LEFT"
         );
 
     }
 
 
-    // Add HTTP automatically if user enters only an IP.
-    if (
-        !url.startsWith(
-            "http://"
-        ) &&
-        !url.startsWith(
-            "https://"
-        )
-    ) {
+    if (rightButton) {
 
-        url =
-            "http://" +
-            url;
-
-    }
-
-
-    // Remove trailing slash.
-    url =
-        url.replace(
-            /\/+$/,
-            ""
+        rightButton.classList.toggle(
+            "active",
+            normalizedSide === "RIGHT"
         );
-
-
-    return url;
-
-}
-
-
-// ============================================================
-// WIRELESS REQUEST
-// ============================================================
-
-async function wirelessRequest(
-    path,
-    options = {}
-) {
-
-    const baseUrl =
-        getESP32BaseUrl();
-
-
-    const url =
-        baseUrl +
-        path;
-
-
-    const requestOptions = {
-        method:
-            options.method ||
-            "GET",
-
-        headers: {
-            "Content-Type":
-                "application/json",
-
-            ...(options.headers || {})
-        },
-
-        ...options
-    };
-
-
-    let response;
-
-
-    try {
-
-        response =
-            await fetch(
-                url,
-                requestOptions
-            );
-
-    }
-
-    catch (error) {
-
-        throw new Error(
-            "Could not reach the ESP32. Check Wi-Fi connection, IP address and ESP32 server."
-        );
-
-    }
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            `ESP32 returned HTTP ${response.status}.`
-        );
-
-    }
-
-
-    const contentType =
-        response.headers.get(
-            "content-type"
-        ) || "";
-
-
-    if (
-        contentType.includes(
-            "application/json"
-        )
-    ) {
-
-        return await response.json();
-
-    }
-
-
-    const text =
-        await response.text();
-
-
-    try {
-
-        return JSON.parse(text);
-
-    }
-
-    catch {
-
-        return {
-            ok: true,
-            text: text
-        };
 
     }
 
@@ -2349,170 +2289,54 @@ async function wirelessRequest(
 
 
 // ============================================================
-// CONNECT ESP32
+// GENERATE SCAN ID
 // ============================================================
 
-async function connectESP32() {
+function generateScanId() {
 
-    try {
+    const timestamp =
+        Date.now().toString(36).toUpperCase();
 
-        const baseUrl =
-            getESP32BaseUrl();
-
-
-        esp32BaseUrl =
-            baseUrl;
-
-
-        localStorage.setItem(
-            "esp32BaseUrl",
-            baseUrl
-        );
+    const random =
+        Math.random()
+            .toString(36)
+            .substring(2, 7)
+            .toUpperCase();
 
 
-        setScannerStatus(
-            "Connecting to ESP32..."
-        );
-
-
-        const result =
-            await wirelessRequest(
-                "/api/status"
-            );
-
-
-        if (
-            result &&
-            result.device_id &&
-            result.device_id !==
-                ESP32_DEVICE_ID
-        ) {
-
-            console.warn(
-                "Unexpected scanner device:",
-                result.device_id
-            );
-
-        }
-
-
-        esp32Connected =
-            true;
-
-
-        setScannerStatus(
-            `ESP32 Connected | Scanner: ${result.device_id || ESP32_DEVICE_ID}`
-        );
-
-
-        const operatorStatus =
-            document.getElementById(
-                "operatorScannerStatus"
-            );
-
-
-        if (operatorStatus) {
-
-            operatorStatus.textContent =
-                `Scanner status: ESP32 Connected | Scanner: ${result.device_id || ESP32_DEVICE_ID}`;
-
-        }
-
-
-        return true;
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "ESP32 connection error:",
-            error
-        );
-
-
-        esp32Connected =
-            false;
-
-
-        setScannerStatus(
-            "ESP32 connection failed: " +
-            error.message
-        );
-
-
-        alert(
-            "ESP32 connection failed.\n\n" +
-            error.message
-        );
-
-
-        return false;
-
-    }
+    return `SCAN-${timestamp}-${random}`;
 
 }
 
 
 // ============================================================
-// DISCONNECT ESP32
+// CANCEL SCAN PREPARATION
 // ============================================================
 
-async function disconnectESP32() {
+function cancelScanPreparation() {
 
-    stopWirelessScanPolling();
+    stopWirelessPolling();
 
+    patientScannerRunning = false;
+    referenceScannerRunning = false;
 
-    esp32Connected =
-        false;
+    currentWirelessCommandId = null;
+    currentWirelessScanId = null;
+    currentWirelessMode = null;
 
-
-    patientScannerRunning =
-        false;
-
-
-    referenceScannerRunning =
-        false;
-
-
-    setScannerStatus(
-        "ESP32 wireless connection: Not connected."
+    updateScannerStatus(
+        "Ready"
     );
 
 
-    const operatorStatus =
+    const modal =
         document.getElementById(
-            "operatorScannerStatus"
+            "scanPreparationModal"
         );
 
 
-    if (operatorStatus) {
-
-        operatorStatus.textContent =
-            "Scanner status: ESP32 disconnected.";
-
-    }
-
-}
-
-
-// ============================================================
-// SET SCANNER STATUS
-// ============================================================
-
-function setScannerStatus(message) {
-
-    const status =
-        document.getElementById(
-            "scannerStatus"
-        );
-
-
-    if (status) {
-
-        status.textContent =
-            message;
-
+    if (modal) {
+        modal.style.display = "none";
     }
 
 }
@@ -2527,7 +2351,7 @@ async function startPatientScan() {
     if (!currentPatient) {
 
         alert(
-            "Please select a patient."
+            "Please select a patient first."
         );
 
         return;
@@ -2535,10 +2359,13 @@ async function startPatientScan() {
     }
 
 
-    if (!currentMeasurementSide) {
+    if (
+        currentMeasurementSide !== "LEFT" &&
+        currentMeasurementSide !== "RIGHT"
+    ) {
 
         alert(
-            "Please select Left or Right measurement side."
+            "Please select LEFT or RIGHT measurement side."
         );
 
         return;
@@ -2546,10 +2373,10 @@ async function startPatientScan() {
     }
 
 
-    if (!esp32Connected) {
+    if (patientScannerRunning) {
 
         alert(
-            "Connect ESP32 first."
+            "A patient scan is already running."
         );
 
         return;
@@ -2557,120 +2384,106 @@ async function startPatientScan() {
     }
 
 
-    patientScannerRunning =
-        true;
+    if (referenceScannerRunning) {
 
-
-    wirelessScanStartTime =
-        Date.now();
-
-
-    const operatorStatus =
-        document.getElementById(
-            "operatorScannerStatus"
+        alert(
+            "A reference scan is currently running."
         );
 
-
-    if (operatorStatus) {
-
-        operatorStatus.textContent =
-            "Scanner status: Starting acoustic scan...";
+        return;
 
     }
 
 
-    setScannerStatus(
-        "ESP32 connected. Starting acoustic scan..."
+    const scanId =
+        generateScanId();
+
+
+    patientScannerRunning = true;
+
+    currentWirelessMode = "patient";
+
+    currentWirelessScanId =
+        scanId;
+
+
+    updateScannerStatus(
+        "Sending scan command..."
     );
 
 
     try {
 
-        const result =
-            await wirelessRequest(
-                "/api/scan/start",
-                {
-                    method: "POST",
+        // ----------------------------------------------------
+        // Create remote scan command.
+        //
+        // ESP32 polls this table every few seconds.
+        // ----------------------------------------------------
 
-                    body:
-                        JSON.stringify({
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_commands")
+            .insert({
 
-                            command:
-                                "start_scan",
+                device_id:
+                    SCANNER_DEVICE_ID,
 
-                            subject_id:
-                                currentPatient.id,
+                subject_id:
+                    currentPatient.id,
 
-                            side:
-                                currentMeasurementSide,
+                scan_id:
+                    scanId,
 
-                            device_id:
-                                ESP32_DEVICE_ID
+                measurement_side:
+                    currentMeasurementSide,
 
-                        })
-                }
-            );
+                status:
+                    "PENDING"
+
+            })
+            .select()
+            .single();
 
 
-        if (
-            result &&
-            result.ok === false
-        ) {
-
-            throw new Error(
-                result.message ||
-                "ESP32 refused to start the scan."
-            );
-
+        if (error) {
+            throw error;
         }
 
 
-        setScannerStatus(
-            "Scanning... 0%"
+        currentWirelessCommandId =
+            data.id;
+
+
+        updateScannerStatus(
+            "Command sent. Waiting for ESP32..."
         );
-
-
-        if (operatorStatus) {
-
-            operatorStatus.textContent =
-                "Scanner status: Scanning... 0%";
-
-        }
 
 
         startWirelessScanPolling();
 
-    }
 
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "Start wireless scan error:",
+            "Starting wireless patient scan failed:",
             error
         );
 
 
-        patientScannerRunning =
-            false;
+        patientScannerRunning = false;
 
+        currentWirelessMode = null;
 
-        setScannerStatus(
-            "Could not start scan: " +
-            error.message
+        updateScannerStatus(
+            "Scan command failed"
         );
 
 
-        if (operatorStatus) {
-
-            operatorStatus.textContent =
-                "Scanner status: Scan failed to start.";
-
-        }
-
-
         alert(
-            "Could not start acoustic scan.\n\n" +
-            error.message
+            error.message ||
+            "Unable to start scan."
         );
 
     }
@@ -2684,10 +2497,18 @@ async function startPatientScan() {
 
 async function stopPatientScan() {
 
-    if (!patientScannerRunning) {
+    stopWirelessPolling();
 
-        setScannerStatus(
-            "No patient scan is currently running."
+
+    if (
+        !currentWirelessCommandId
+    ) {
+
+        patientScannerRunning = false;
+        referenceScannerRunning = false;
+
+        updateScannerStatus(
+            "Ready"
         );
 
         return;
@@ -2697,53 +2518,59 @@ async function stopPatientScan() {
 
     try {
 
-        await wirelessRequest(
-            "/api/scan/stop",
-            {
-                method: "POST",
+        const {
+            error
+        } = await supabaseClient
+            .from("scan_commands")
+            .update({
+                status: "CANCELLED"
+            })
+            .eq(
+                "id",
+                currentWirelessCommandId
+            )
+            .in(
+                "status",
+                [
+                    "PENDING",
+                    "RUNNING"
+                ]
+            );
 
-                body:
-                    JSON.stringify({
-                        command:
-                            "stop_scan"
-                    })
-            }
+
+        if (error) {
+            throw error;
+        }
+
+
+        patientScannerRunning = false;
+        referenceScannerRunning = false;
+
+        currentWirelessCommandId = null;
+        currentWirelessScanId = null;
+        currentWirelessMode = null;
+
+
+        updateScannerStatus(
+            "Scan cancelled"
         );
 
-    }
 
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "Stop scan error:",
+            "Stopping scan failed:",
             error
         );
 
-    }
+
+        patientScannerRunning = false;
+        referenceScannerRunning = false;
 
 
-    patientScannerRunning =
-        false;
-
-
-    stopWirelessScanPolling();
-
-
-    setScannerStatus(
-        "Scan stopped. No incomplete measurement was saved."
-    );
-
-
-    const operatorStatus =
-        document.getElementById(
-            "operatorScannerStatus"
+        updateScannerStatus(
+            "Stop requested"
         );
-
-
-    if (operatorStatus) {
-
-        operatorStatus.textContent =
-            "Scanner status: Scan stopped.";
 
     }
 
@@ -2756,27 +2583,485 @@ async function stopPatientScan() {
 
 function startWirelessScanPolling() {
 
-    stopWirelessScanPolling();
+    stopWirelessPolling();
 
 
     wirelessPollTimer =
         setInterval(
-            async function () {
+            async () => {
 
                 await pollWirelessScanStatus();
 
             },
-            700
+            1000
         );
+
+
+    // Run immediately instead of waiting 1 second.
+    pollWirelessScanStatus();
 
 }
 
 
 // ============================================================
-// STOP WIRELESS SCAN POLLING
+// POLL WIRELESS SCAN STATUS
 // ============================================================
 
-function stopWirelessScanPolling() {
+async function pollWirelessScanStatus() {
+
+    if (
+        !currentWirelessCommandId
+    ) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_commands")
+            .select("*")
+            .eq(
+                "id",
+                currentWirelessCommandId
+            )
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            updateScannerStatus(
+                "Scan command not found"
+            );
+
+            return;
+
+        }
+
+
+        const status =
+            String(
+                data.status || ""
+            ).toUpperCase();
+
+
+        // ----------------------------------------------------
+        // PENDING
+        // ----------------------------------------------------
+
+        if (status === "PENDING") {
+
+            updateScannerStatus(
+                "Waiting for ESP32..."
+            );
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // RUNNING
+        // ----------------------------------------------------
+
+        if (status === "RUNNING") {
+
+            updateScannerStatus(
+                "ESP32 is scanning..."
+            );
+
+
+            updateWirelessProgress(
+                data.progress,
+                data.current_frequency
+            );
+
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // COMPLETED
+        // ----------------------------------------------------
+
+        if (status === "COMPLETED") {
+
+            await handleWirelessScanCompleted(
+                data
+            );
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // FAILED
+        // ----------------------------------------------------
+
+        if (status === "FAILED") {
+
+            stopWirelessPolling();
+
+            patientScannerRunning = false;
+            referenceScannerRunning = false;
+
+
+            updateScannerStatus(
+                "Scan failed"
+            );
+
+
+            alert(
+                data.error_message ||
+                "ESP32 scan failed."
+            );
+
+
+            clearWirelessState();
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // CANCELLED
+        // ----------------------------------------------------
+
+        if (status === "CANCELLED") {
+
+            stopWirelessPolling();
+
+            patientScannerRunning = false;
+            referenceScannerRunning = false;
+
+
+            updateScannerStatus(
+                "Scan cancelled"
+            );
+
+
+            clearWirelessState();
+
+            return;
+
+        }
+
+
+        updateScannerStatus(
+            `Scanner status: ${status}`
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Wireless scan polling error:",
+            error
+        );
+
+        updateScannerStatus(
+            "Checking scanner..."
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// HANDLE COMPLETED WIRELESS SCAN
+// ============================================================
+
+async function handleWirelessScanCompleted(
+    command
+) {
+
+    stopWirelessPolling();
+
+
+    updateScannerStatus(
+        "Scan complete. Loading measurement..."
+    );
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_measurements")
+            .select("*")
+            .eq(
+                "scan_id",
+                command.scan_id
+            )
+            .order(
+                "created_at",
+                {
+                    ascending: false
+                }
+            )
+            .limit(1)
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            // ESP32 may have marked the command complete
+            // just before the measurement becomes visible.
+            //
+            // Wait briefly and try once more.
+
+            await delay(1000);
+
+
+            const retry =
+                await supabaseClient
+                    .from("scan_measurements")
+                    .select("*")
+                    .eq(
+                        "scan_id",
+                        command.scan_id
+                    )
+                    .order(
+                        "created_at",
+                        {
+                            ascending: false
+                        }
+                    )
+                    .limit(1)
+                    .maybeSingle();
+
+
+            if (retry.error) {
+                throw retry.error;
+            }
+
+
+            if (!retry.data) {
+
+                throw new Error(
+                    "Scan completed but no measurement was found."
+                );
+
+            }
+
+
+            await processCompletedMeasurement(
+                retry.data
+            );
+
+
+        } else {
+
+            await processCompletedMeasurement(
+                data
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Completed scan handling failed:",
+            error
+        );
+
+
+        patientScannerRunning = false;
+        referenceScannerRunning = false;
+
+
+        updateScannerStatus(
+            "Measurement retrieval failed"
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to retrieve scan measurement."
+        );
+
+
+        clearWirelessState();
+
+    }
+
+}
+
+
+// ============================================================
+// PROCESS COMPLETED MEASUREMENT
+// ============================================================
+
+async function processCompletedMeasurement(
+    measurement
+) {
+
+    if (!measurement) {
+        return;
+    }
+
+
+    const f0 =
+        Number(
+            measurement.f0
+        );
+
+    const rms =
+        Number(
+            measurement.rms
+        );
+
+    const q =
+        Number(
+            measurement.q_factor
+        );
+
+    const bandwidth =
+        Number(
+            measurement.bandwidth
+        );
+
+
+    if (
+        !Number.isFinite(f0) ||
+        !Number.isFinite(rms) ||
+        !Number.isFinite(q) ||
+        !Number.isFinite(bandwidth)
+    ) {
+
+        throw new Error(
+            "The scanner returned an incomplete measurement."
+        );
+
+    }
+
+
+    // --------------------------------------------------------
+    // If firmware has already inserted the result into
+    // scan_measurements, do NOT insert a duplicate here.
+    // --------------------------------------------------------
+
+    displayMeasurementResult(
+        measurement
+    );
+
+
+    patientScannerRunning = false;
+    referenceScannerRunning = false;
+
+
+    updateScannerStatus(
+        "Scan completed successfully"
+    );
+
+
+    await loadScans(
+        currentPatient
+            ? currentPatient.id
+            : null
+    );
+
+
+    clearWirelessState();
+
+}
+
+
+// ============================================================
+// UPDATE WIRELESS PROGRESS
+// ============================================================
+
+function updateWirelessProgress(
+    progress,
+    frequency
+) {
+
+    const progressElement =
+        document.getElementById(
+            "scannerProgress"
+        );
+
+    const frequencyElement =
+        document.getElementById(
+            "scannerFrequency"
+        );
+
+
+    if (
+        progressElement &&
+        Number.isFinite(
+            Number(progress)
+        )
+    ) {
+
+        const value =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    Number(progress)
+                )
+            );
+
+
+        progressElement.value =
+            value;
+
+
+        if (
+            "textContent" in
+            progressElement
+        ) {
+
+            progressElement.textContent =
+                `${value.toFixed(0)}%`;
+
+        }
+
+    }
+
+
+    if (
+        frequencyElement &&
+        Number.isFinite(
+            Number(frequency)
+        )
+    ) {
+
+        frequencyElement.textContent =
+            `${Number(frequency).toFixed(0)} Hz`;
+
+    }
+
+}
+
+
+// ============================================================
+// STOP WIRELESS POLLING
+// ============================================================
+
+function stopWirelessPolling() {
 
     if (wirelessPollTimer) {
 
@@ -2784,8 +3069,7 @@ function stopWirelessScanPolling() {
             wirelessPollTimer
         );
 
-        wirelessPollTimer =
-            null;
+        wirelessPollTimer = null;
 
     }
 
@@ -2793,435 +3077,27 @@ function stopWirelessScanPolling() {
 
 
 // ============================================================
-// POLL ESP32 SCAN STATUS
+// CLEAR WIRELESS STATE
 // ============================================================
 
-async function pollWirelessScanStatus() {
-
-    if (!patientScannerRunning) {
-
-        return;
-
-    }
-
-
-    // 5-minute safety timeout.
-    if (
-        wirelessScanStartTime &&
-        Date.now() -
-            wirelessScanStartTime >
-            5 * 60 * 1000
-    ) {
-
-        patientScannerRunning =
-            false;
-
-        stopWirelessScanPolling();
-
-
-        setScannerStatus(
-            "Scan timed out."
-        );
-
-
-        try {
-
-            await wirelessRequest(
-                "/api/scan/stop",
-                {
-                    method: "POST",
-
-                    body:
-                        JSON.stringify({
-                            command:
-                                "stop_scan"
-                        })
-                }
-            );
-
-        }
-
-        catch {
-
-            // Ignore stop failure after timeout.
-
-        }
-
-
-        alert(
-            "The acoustic scan timed out. No incomplete result was saved."
-        );
-
-
-        return;
-
-    }
-
-
-    try {
-
-        const result =
-            await wirelessRequest(
-                "/api/scan/status"
-            );
-
-
-        if (!result) {
-
-            return;
-
-        }
-
-
-        // ----------------------------------------------------
-        // SCAN PROGRESS
-        // ----------------------------------------------------
-
-        if (
-            result.type ===
-            "scan_progress"
-        ) {
-
-            const frequency =
-                Number(
-                    result.frequency
-                );
-
-
-            const progress =
-                Number(
-                    result.progress
-                );
-
-
-            const frequencyText =
-                Number.isFinite(
-                    frequency
-                )
-                    ? `${frequency} Hz`
-                    : "";
-
-
-            const progressText =
-                Number.isFinite(
-                    progress
-                )
-                    ? `${progress}%`
-                    : "";
-
-
-            setScannerStatus(
-                `Scanning... ${frequencyText} ${progressText}`
-            );
-
-
-            const operatorStatus =
-                document.getElementById(
-                    "operatorScannerStatus"
-                );
-
-
-            if (operatorStatus) {
-
-                operatorStatus.textContent =
-                    `Scanner status: Scanning... ${frequencyText} ${progressText}`;
-
-            }
-
-
-            return;
-
-        }
-
-
-        // ----------------------------------------------------
-        // SCAN RESULT
-        // ----------------------------------------------------
-
-        if (
-            result.type ===
-                "scan_result" ||
-            result.type ===
-                "result" ||
-            result.result
-        ) {
-
-            const scanResult =
-                result.result ||
-                result;
-
-
-            patientScannerRunning =
-                false;
-
-
-            stopWirelessScanPolling();
-
-
-            setScannerStatus(
-                "Scan Complete"
-            );
-
-
-            const operatorStatus =
-                document.getElementById(
-                    "operatorScannerStatus"
-                );
-
-
-            if (operatorStatus) {
-
-                operatorStatus.textContent =
-                    "Scanner status: Scan Complete";
-
-            }
-
-
-            await validateAndSaveWirelessResult(
-                scanResult
-            );
-
-
-            return;
-
-        }
-
-
-        // ----------------------------------------------------
-        // SCAN STOPPED
-        // ----------------------------------------------------
-
-        if (
-            result.type ===
-            "scan_stopped"
-        ) {
-
-            patientScannerRunning =
-                false;
-
-            stopWirelessScanPolling();
-
-
-            setScannerStatus(
-                "Scan stopped."
-            );
-
-
-            return;
-
-        }
-
-
-        // ----------------------------------------------------
-        // DEVICE DISCONNECTED
-        // ----------------------------------------------------
-
-        if (
-            result.connected ===
-            false
-        ) {
-
-            esp32Connected =
-                false;
-
-            patientScannerRunning =
-                false;
-
-            stopWirelessScanPolling();
-
-
-            setScannerStatus(
-                "ESP32 disconnected."
-            );
-
-
-            return;
-
-        }
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Wireless scan status error:",
-            error
-        );
-
-
-        // Do not immediately stop for one temporary
-        // Wi-Fi request failure.
-        // The next poll will try again.
-
-    }
-
-}
-
-
-// ============================================================
-// VALIDATE AND SAVE WIRELESS RESULT
-// ============================================================
-
-async function validateAndSaveWirelessResult(
-    result
-) {
-
-    if (!result) {
-
-        alert(
-            "ESP32 returned an empty scan result."
-        );
-
-        return;
-
-    }
-
-
-    const f0 =
-        Number(
-            result.f0
-        );
-
-
-    const rms =
-        Number(
-            result.rms
-        );
-
-
-    const qFactor =
-        Number(
-            result.q_factor
-        );
-
-
-    const bandwidth =
-        Number(
-            result.bandwidth
-        );
-
-
-    if (!Number.isFinite(f0)) {
-
-        alert(
-            "Invalid scan result: missing F₀."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(rms)) {
-
-        alert(
-            "Invalid scan result: missing RMS."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(qFactor)) {
-
-        alert(
-            "Invalid scan result: missing Q-factor."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(bandwidth)) {
-
-        alert(
-            "Invalid scan result: missing bandwidth."
-        );
-
-        return;
-
-    }
-
-
-    try {
-
-        const saved =
-            await savePatientMeasurement({
-
-                ...result,
-
-                f0:
-                    f0,
-
-                rms:
-                    rms,
-
-                q_factor:
-                    qFactor,
-
-                bandwidth:
-                    bandwidth
-
-            });
-
-
-        setScannerStatus(
-            "Scan Complete — Measurement saved."
-        );
-
-
-        alert(
-            "Acoustic scan completed successfully.\n\n" +
-            "F₀: " +
-            formatNumber(f0) +
-            " Hz\n" +
-            "RMS: " +
-            formatNumber(rms) +
-            "\n" +
-            "Q-factor: " +
-            formatNumber(qFactor) +
-            "\n" +
-            "Bandwidth: " +
-            formatNumber(bandwidth) +
-            " Hz"
-        );
-
-
-        return saved;
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Wireless result save error:",
-            error
-        );
-
-
-        setScannerStatus(
-            "Scan completed, but saving failed."
-        );
-
-
-        alert(
-            "The ESP32 completed the scan, but the result could not be saved.\n\n" +
-            error.message
-        );
-
-    }
+function clearWirelessState() {
+
+    currentWirelessCommandId = null;
+    currentWirelessScanId = null;
+    currentWirelessMode = null;
 
 }
 
 
 // ============================================================
 // SAVE PATIENT MEASUREMENT
+//
+// This function is retained for manual/reference workflows.
+// Normal ESP32 scans already upload directly to Supabase.
 // ============================================================
 
 async function savePatientMeasurement(
-    result
+    measurement
 ) {
 
     if (!currentPatient) {
@@ -3233,201 +3109,81 @@ async function savePatientMeasurement(
     }
 
 
-    if (!currentMeasurementSide) {
+    const payload = {
 
-        throw new Error(
-            "No measurement side selected."
-        );
+        user_id:
+            currentUser
+                ? currentUser.id
+                : null,
 
-    }
+        subject_id:
+            currentPatient.id,
 
+        scan_id:
+            measurement.scan_id ||
+            generateScanId(),
 
-    const f0 =
-        Number(
-            result.f0
-        );
+        f0:
+            toNullableNumber(
+                measurement.f0
+            ),
 
+        rms:
+            toNullableNumber(
+                measurement.rms
+            ),
 
-    const rms =
-        Number(
-            result.rms
-        );
+        q_factor:
+            toNullableNumber(
+                measurement.q_factor
+            ),
 
+        bandwidth:
+            toNullableNumber(
+                measurement.bandwidth
+            ),
 
-    const qFactor =
-        Number(
-            result.q_factor
-        );
+        measurement_side:
+            measurement.measurement_side ||
+            currentMeasurementSide,
 
+        frequency_start:
+            toNullableNumber(
+                measurement.frequency_start ??
+                200
+            ),
 
-    const bandwidth =
-        Number(
-            result.bandwidth
-        );
+        frequency_end:
+            toNullableNumber(
+                measurement.frequency_end ??
+                1200
+            ),
 
+        frequency_step:
+            toNullableNumber(
+                measurement.frequency_step ??
+                5
+            ),
 
-    if (
-        !Number.isFinite(f0) ||
-        !Number.isFinite(rms) ||
-        !Number.isFinite(qFactor) ||
-        !Number.isFinite(bandwidth)
-    ) {
+        sensor_head_id:
+            measurement.sensor_head_id ||
+            "ABS-HEAD-001"
 
-        throw new Error(
-            "Invalid scanner measurement."
-        );
-
-    }
-
-
-    const scanId =
-        result.scan_id ||
-        generateScanId();
+    };
 
 
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .from(
-                "scan_measurements"
-            )
-            .insert({
-
-                scan_id:
-                    scanId,
-
-                f0:
-                    f0,
-
-                rms:
-                    rms,
-
-                q_factor:
-                    qFactor,
-
-                bandwidth:
-                    bandwidth,
-
-                user_id:
-                    currentUser.id,
-
-                subject_id:
-                    currentPatient.id,
-
-                measurement_side:
-                    currentMeasurementSide,
-
-                frequency_start:
-                    Number.isFinite(
-                        Number(
-                            result.frequency_start
-                        )
-                    )
-                        ? Number(
-                            result.frequency_start
-                        )
-                        : 200,
-
-                frequency_end:
-                    Number.isFinite(
-                        Number(
-                            result.frequency_end
-                        )
-                    )
-                        ? Number(
-                            result.frequency_end
-                        )
-                        : 1200,
-
-                frequency_step:
-                    Number.isFinite(
-                        Number(
-                            result.frequency_step
-                        )
-                    )
-                        ? Number(
-                            result.frequency_step
-                        )
-                        : 25,
-
-                sensor_head_id:
-                    result.sensor_head_id ||
-                    null,
-
-                reference_group_id:
-                    result.reference_group_id ||
-                    null,
-
-                f0_deviation:
-                    result.f0_deviation ??
-                    null,
-
-                rms_deviation:
-                    result.rms_deviation ??
-                    null,
-
-                q_deviation:
-                    result.q_deviation ??
-                    null,
-
-                bandwidth_deviation:
-                    result.bandwidth_deviation ??
-                    null,
-
-                f0_zscore:
-                    result.f0_zscore ??
-                    null,
-
-                rms_zscore:
-                    result.rms_zscore ??
-                    null,
-
-                q_zscore:
-                    result.q_zscore ??
-                    null,
-
-                bandwidth_zscore:
-                    result.bandwidth_zscore ??
-                    null,
-
-                comparison_status:
-                    result.comparison_status ||
-                    null,
-
-                notes:
-                    result.notes ||
-                    null
-
-            })
-            .select()
-            .single();
+    } = await supabaseClient
+        .from("scan_measurements")
+        .insert(payload)
+        .select()
+        .single();
 
 
     if (error) {
-
-        console.error(
-            "Saving patient measurement failed:",
-            error
-        );
-
         throw error;
-
-    }
-
-
-    await loadScans();
-
-
-    if (
-        currentProfile &&
-        currentProfile.role ===
-            "admin"
-    ) {
-
-        await loadAllScans();
-
     }
 
 
@@ -3437,80 +3193,187 @@ async function savePatientMeasurement(
 
 
 // ============================================================
-// GENERATE SCAN ID
+// DISPLAY MEASUREMENT RESULT
 // ============================================================
 
-function generateScanId() {
+function displayMeasurementResult(
+    measurement
+) {
 
-    const timestamp =
-        Date.now()
-            .toString()
-            .slice(-8);
+    const f0 =
+        toNullableNumber(
+            measurement.f0
+        );
+
+    const rms =
+        toNullableNumber(
+            measurement.rms
+        );
+
+    const q =
+        toNullableNumber(
+            measurement.q_factor
+        );
+
+    const bandwidth =
+        toNullableNumber(
+            measurement.bandwidth
+        );
 
 
-    return `SCAN-${timestamp}`;
+    const f0Element =
+        document.getElementById(
+            "resultF0"
+        );
 
-}
+    const rmsElement =
+        document.getElementById(
+            "resultRMS"
+        );
+
+    const qElement =
+        document.getElementById(
+            "resultQ"
+        );
+
+    const bandwidthElement =
+        document.getElementById(
+            "resultBandwidth"
+        );
+
+    const sideElement =
+        document.getElementById(
+            "resultSide"
+        );
+
+    const scanIdElement =
+        document.getElementById(
+            "resultScanId"
+        );
 
 
-// ============================================================
-// CANCEL SCAN PREPARATION
-// ============================================================
+    if (f0Element) {
 
-function cancelScanPreparation() {
-
-    if (patientScannerRunning) {
-
-        stopPatientScan();
+        f0Element.textContent =
+            formatNumber(
+                f0,
+                2
+            ) + " Hz";
 
     }
 
 
-    currentPatient =
-        null;
+    if (rmsElement) {
 
-    currentMeasurementSide =
-        null;
+        rmsElement.textContent =
+            formatNumber(
+                rms,
+                3
+            );
 
-    patientScannerRunning =
-        false;
+    }
 
 
-    document
-        .getElementById(
-            "scanPreparation"
-        )
-        ?.classList
-        .add("hidden");
+    if (qElement) {
+
+        qElement.textContent =
+            formatNumber(
+                q,
+                3
+            );
+
+    }
+
+
+    if (bandwidthElement) {
+
+        bandwidthElement.textContent =
+            formatNumber(
+                bandwidth,
+                2
+            ) + " Hz";
+
+    }
+
+
+    if (sideElement) {
+
+        sideElement.textContent =
+            measurement.measurement_side ||
+            "—";
+
+    }
+
+
+    if (scanIdElement) {
+
+        scanIdElement.textContent =
+            measurement.scan_id ||
+            "—";
+
+    }
+
+
+    const resultSection =
+        document.getElementById(
+            "scanResultSection"
+        );
+
+
+    if (resultSection) {
+
+        resultSection.style.display =
+            "";
+
+    }
 
 }
 
 
 // ============================================================
-// OPERATOR SCANS
+// LOAD PATIENT SCANS
 // ============================================================
 
-async function loadScans() {
+async function loadScans(
+    subjectId = null
+) {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "scan_measurements"
-            )
-            .select(`
-                *,
-                subjects (
-                    name,
-                    patient_id,
-                    subject_id
-                )
-            `)
+    const container =
+        document.getElementById(
+            "scansList"
+        );
+
+
+    const targetSubject =
+        subjectId ||
+        currentPatient?.id;
+
+
+    if (!targetSubject) {
+
+        if (container) {
+
+            container.innerHTML =
+                "<p>Select a patient to view scans.</p>";
+
+        }
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_measurements")
+            .select("*")
             .eq(
-                "user_id",
-                currentUser.id
+                "subject_id",
+                targetSubject
             )
             .order(
                 "created_at",
@@ -3520,141 +3383,130 @@ async function loadScans() {
             );
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!data || data.length === 0) {
+
+            container.innerHTML =
+                "<p>No measurements recorded.</p>";
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            data.map(scan => {
+
+                const scanId =
+                    escapeHTML(
+                        scan.scan_id ||
+                        ""
+                    );
+
+                const side =
+                    escapeHTML(
+                        scan.measurement_side ||
+                        "—"
+                    );
+
+
+                return `
+                    <div class="scan-card">
+
+                        <div>
+                            <strong>
+                                ${scanId}
+                            </strong>
+
+                            <div>
+                                ${formatDate(
+                                    scan.created_at
+                                )}
+                            </div>
+
+                            <div>
+                                Side:
+                                ${side}
+                            </div>
+                        </div>
+
+                        <div>
+                            <span>
+                                f0:
+                                ${formatNumber(
+                                    scan.f0,
+                                    2
+                                )} Hz
+                            </span>
+
+                            <span>
+                                RMS:
+                                ${formatNumber(
+                                    scan.rms,
+                                    3
+                                )}
+                            </span>
+
+                            <span>
+                                Q:
+                                ${formatNumber(
+                                    scan.q_factor,
+                                    3
+                                )}
+                            </span>
+
+                            <span>
+                                BW:
+                                ${formatNumber(
+                                    scan.bandwidth,
+                                    2
+                                )} Hz
+                            </span>
+                        </div>
+
+                        <div>
+
+                            <button
+                                type="button"
+                                onclick="deletePatientMeasurement('${escapeHTML(
+                                    scan.id || ""
+                                )}')"
+                            >
+                                Delete
+                            </button>
+
+                        </div>
+
+                    </div>
+                `;
+
+            }).join("");
+
+
+    } catch (error) {
 
         console.error(
-            "Operator scans error:",
+            "Loading scans failed:",
             error
         );
 
-        return;
+        if (container) {
 
-    }
-
-
-    const scans =
-        data || [];
-
-
-    const table =
-        document.getElementById(
-            "scansList"
-        );
-
-
-    if (!table) {
-
-        return;
-
-    }
-
-
-    table.innerHTML = "";
-
-
-    if (!scans.length) {
-
-        table.innerHTML =
-            `<tr>
-                <td colspan="10">
-                    No patient measurements found.
-                </td>
-             </tr>`;
-
-        return;
-
-    }
-
-
-    scans.forEach(
-        function (scan) {
-
-            const patient =
-                scan.subjects || {};
-
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-
-            row.innerHTML = `
-
-                <td>
-                    ${escapeHTML(
-                        scan.scan_id || ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        patient.name || ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        scan.measurement_side ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.f0
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.rms
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.q_factor
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        scan.bandwidth
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        scan.comparison_status ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        scan.created_at
-                    )}
-                </td>
-
-                <td>
-
-                    <button
-                        class="danger"
-                        onclick="deletePatientMeasurement('${escapeHTMLAttribute(scan.id)}')"
-                    >
-                        Delete
-                    </button>
-
-                </td>
-
-            `;
-
-
-            table.appendChild(row);
+            container.innerHTML =
+                "<p>Unable to load measurements.</p>";
 
         }
-    );
+
+    }
 
 }
 
@@ -3667,27 +3519,39 @@ async function deletePatientMeasurement(
     id
 ) {
 
-    const confirmed =
-        confirm(
-            "Are you sure you want to delete this patient measurement?\n\n" +
-            "This action cannot be undone."
+    if (!id) {
+        return;
+    }
+
+
+    if (!isOperator() && !isAdmin()) {
+
+        alert(
+            "You do not have permission to delete measurements."
         );
-
-
-    if (!confirmed) {
 
         return;
 
     }
 
 
-    const {
-        error
-    } =
-        await supabaseClient
-            .from(
-                "scan_measurements"
-            )
+    if (
+        !confirm(
+            "Delete this measurement?"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const {
+            error
+        } = await supabaseClient
+            .from("scan_measurements")
             .delete()
             .eq(
                 "id",
@@ -3695,428 +3559,121 @@ async function deletePatientMeasurement(
             );
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
+
+
+        await loadScans();
+
+
+        if (isAdmin()) {
+            await loadAllScans();
+        }
+
+
+    } catch (error) {
 
         console.error(
-            "Delete measurement error:",
+            "Measurement deletion failed:",
             error
         );
 
         alert(
-            "Could not delete measurement:\n\n" +
-            error.message
+            error.message ||
+            "Unable to delete measurement."
         );
-
-        return;
 
     }
-
-
-    alert(
-        "Patient measurement deleted successfully."
-    );
-
-
-    if (
-        currentProfile &&
-        currentProfile.role ===
-            "admin"
-    ) {
-
-        await loadAllScans();
-
-    }
-
-
-    if (
-        currentProfile &&
-        currentProfile.role ===
-            "operator"
-    ) {
-
-        await loadScans();
-
-    }
-
-}
-
-
-// ============================================================
-// REFERENCE TABS
-// ============================================================
-
-function showReferenceTab(
-    tab
-) {
-
-    const manualPanel =
-        document.getElementById(
-            "manualReferencePanel"
-        );
-
-    const scannerPanel =
-        document.getElementById(
-            "scannerReferencePanel"
-        );
-
-    const manualButton =
-        document.getElementById(
-            "manualReferenceTab"
-        );
-
-    const scannerButton =
-        document.getElementById(
-            "scannerReferenceTab"
-        );
-
-
-    if (tab === "manual") {
-
-        manualPanel
-            ?.classList
-            .remove("hidden");
-
-        scannerPanel
-            ?.classList
-            .add("hidden");
-
-        manualButton
-            ?.classList
-            .add("active");
-
-        scannerButton
-            ?.classList
-            .remove("active");
-
-    }
-
-    else {
-
-        manualPanel
-            ?.classList
-            .add("hidden");
-
-        scannerPanel
-            ?.classList
-            .remove("hidden");
-
-        manualButton
-            ?.classList
-            .remove("active");
-
-        scannerButton
-            ?.classList
-            .add("active");
-
-    }
-
-}
-
-
-// ============================================================
-// ADD MANUAL REFERENCE MEASUREMENT
-// ============================================================
-
-async function addManualReference() {
-
-    const sampleId =
-        document
-            .getElementById(
-                "referenceSampleId"
-            )
-            ?.value
-            .trim();
-
-
-    const referenceId =
-        document
-            .getElementById(
-                "referenceId"
-            )
-            ?.value
-            .trim();
-
-
-    const age =
-        parseInt(
-            document
-                .getElementById(
-                    "referenceAge"
-                )
-                ?.value,
-            10
-        );
-
-
-    const gender =
-        document
-            .getElementById(
-                "referenceGender"
-            )
-            ?.value;
-
-
-    const side =
-        document
-            .getElementById(
-                "referenceSide"
-            )
-            ?.value;
-
-
-    const f0 =
-        parseFloat(
-            document
-                .getElementById(
-                    "referenceF0"
-                )
-                ?.value
-        );
-
-
-    const rms =
-        parseFloat(
-            document
-                .getElementById(
-                    "referenceRMS"
-                )
-                ?.value
-        );
-
-
-    const qFactor =
-        parseFloat(
-            document
-                .getElementById(
-                    "referenceQ"
-                )
-                ?.value
-        );
-
-
-    const bandwidth =
-        parseFloat(
-            document
-                .getElementById(
-                    "referenceBandwidth"
-                )
-                ?.value
-        );
-
-
-    const notes =
-        document
-            .getElementById(
-                "referenceNotes"
-            )
-            ?.value
-            .trim();
-
-
-    const message =
-        document.getElementById(
-            "referenceMessage"
-        );
-
-
-    if (
-        !sampleId ||
-        !Number.isFinite(age) ||
-        age <= 0 ||
-        !gender ||
-        !side ||
-        !Number.isFinite(f0) ||
-        !Number.isFinite(rms) ||
-        !Number.isFinite(qFactor) ||
-        !Number.isFinite(bandwidth)
-    ) {
-
-        setMessage(
-            message,
-            "Please fill in Sample ID, age, gender, side, F₀, RMS, Q factor and bandwidth.",
-            "error"
-        );
-
-        return;
-
-    }
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "reference_measurements"
-            )
-            .insert({
-
-                sample_id:
-                    sampleId,
-
-                reference_id:
-                    referenceId ||
-                    null,
-
-                age:
-                    age,
-
-                gender:
-                    gender,
-
-                measurement_side:
-                    side,
-
-                f0:
-                    f0,
-
-                rms:
-                    rms,
-
-                q_factor:
-                    qFactor,
-
-                bandwidth:
-                    bandwidth,
-
-                notes:
-                    notes ||
-                    null
-
-            })
-            .select()
-            .single();
-
-
-    if (error) {
-
-        console.error(
-            "Reference insert error:",
-            error
-        );
-
-        setMessage(
-            message,
-            error.message,
-            "error"
-        );
-
-        return;
-
-    }
-
-
-    setMessage(
-        message,
-        "Reference measurement added successfully.",
-        "success"
-    );
-
-
-    clearManualReferenceForm();
-
-
-    await loadAdminReferences();
-
-}
-
-
-// ============================================================
-// CLEAR MANUAL REFERENCE FORM
-// ============================================================
-
-function clearManualReferenceForm() {
-
-    const ids = [
-
-        "referenceSampleId",
-        "referenceId",
-        "referenceAge",
-        "referenceGender",
-        "referenceSide",
-        "referenceF0",
-        "referenceRMS",
-        "referenceQ",
-        "referenceBandwidth",
-        "referenceNotes"
-
-    ];
-
-
-    ids.forEach(
-        function (id) {
-
-            const element =
-                document.getElementById(
-                    id
-                );
-
-
-            if (element) {
-
-                element.value = "";
-
-            }
-
-        }
-    );
 
 }
 
 
 // ============================================================
 // REFERENCE SCANNER
+//
+// Reference scan uses the SAME ESP32 scan algorithm.
+// The website creates a command with mode/reference data.
 // ============================================================
 
 async function startReferenceScanner() {
 
-    const sampleId =
-        document
-            .getElementById(
-                "scannerReferenceSampleId"
-            )
-            ?.value
-            .trim();
+    if (!isOperator() && !isAdmin()) {
+
+        alert(
+            "Operator or administrator access required."
+        );
+
+        return;
+
+    }
+
+
+    if (patientScannerRunning) {
+
+        alert(
+            "A patient scan is currently running."
+        );
+
+        return;
+
+    }
+
+
+    if (referenceScannerRunning) {
+
+        alert(
+            "A reference scan is already running."
+        );
+
+        return;
+
+    }
+
+
+    const ageInput =
+        document.getElementById(
+            "referenceAge"
+        );
+
+    const genderInput =
+        document.getElementById(
+            "referenceGender"
+        );
+
+    const sideInput =
+        document.getElementById(
+            "referenceSide"
+        );
 
 
     const age =
-        parseInt(
-            document
-                .getElementById(
-                    "scannerReferenceAge"
-                )
-                ?.value,
-            10
-        );
-
+        ageInput
+            ? parseInt(
+                ageInput.value,
+                10
+            )
+            : NaN;
 
     const gender =
-        document
-            .getElementById(
-                "scannerReferenceGender"
-            )
-            ?.value;
-
+        genderInput
+            ? genderInput.value.trim()
+            : "";
 
     const side =
-        document
-            .getElementById(
-                "scannerReferenceSide"
-            )
-            ?.value;
+        sideInput
+            ? sideInput.value.trim().toUpperCase()
+            : "LEFT";
 
 
     if (
-        !sampleId ||
         !Number.isFinite(age) ||
-        age <= 0 ||
-        !gender ||
-        !side
+        age < 1 ||
+        age > 120
     ) {
 
         alert(
-            "Please enter Sample ID, age, gender and measurement side first."
+            "Enter a valid reference age."
         );
 
         return;
@@ -4124,10 +3681,10 @@ async function startReferenceScanner() {
     }
 
 
-    if (!esp32Connected) {
+    if (!gender) {
 
         alert(
-            "Connect ESP32 first."
+            "Enter reference gender."
         );
 
         return;
@@ -4135,89 +3692,80 @@ async function startReferenceScanner() {
     }
 
 
-    referenceScannerRunning =
-        true;
+    const sampleId =
+        `REF-${Date.now()}`;
 
 
-    setReferenceScannerStatus(
-        "Starting ESP32 reference scan..."
+    referenceScannerRunning = true;
+
+    currentWirelessMode =
+        "reference";
+
+    currentWirelessScanId =
+        sampleId;
+
+
+    updateScannerStatus(
+        "Starting reference scan..."
     );
 
 
     try {
 
-        const result =
-            await wirelessRequest(
-                "/api/scan/start",
-                {
-                    method: "POST",
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_commands")
+            .insert({
 
-                    body:
-                        JSON.stringify({
+                device_id:
+                    SCANNER_DEVICE_ID,
 
-                            command:
-                                "start_scan",
+                subject_id:
+                    null,
 
-                            mode:
-                                "reference",
+                scan_id:
+                    sampleId,
 
-                            sample_id:
-                                sampleId,
+                measurement_side:
+                    side,
 
-                            age:
-                                age,
+                status:
+                    "PENDING",
 
-                            gender:
-                                gender,
+                mode:
+                    "REFERENCE",
 
-                            side:
-                                side,
+                reference_age:
+                    age,
 
-                            device_id:
-                                ESP32_DEVICE_ID
+                reference_gender:
+                    gender
 
-                        })
-                }
-            );
+            })
+            .select()
+            .single();
 
 
-        if (
-            result &&
-            result.ok === false
-        ) {
-
-            throw new Error(
-                result.message ||
-                "ESP32 refused to start the reference scan."
-            );
-
+        if (error) {
+            throw error;
         }
 
 
-        setReferenceScannerStatus(
-            "Reference scan running..."
+        currentWirelessCommandId =
+            data.id;
+
+
+        updateScannerStatus(
+            "Reference command sent. Waiting for ESP32..."
         );
 
 
-        startReferenceWirelessPolling(
-            {
-                sample_id:
-                    sampleId,
+        startWirelessReferencePolling();
 
-                age:
-                    age,
 
-                gender:
-                    gender,
-
-                measurement_side:
-                    side
-            }
-        );
-
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "Reference scanner error:",
@@ -4225,19 +3773,19 @@ async function startReferenceScanner() {
         );
 
 
-        referenceScannerRunning =
-            false;
+        referenceScannerRunning = false;
+
+        currentWirelessMode = null;
 
 
-        setReferenceScannerStatus(
-            "Reference scan failed: " +
-            error.message
+        updateScannerStatus(
+            "Reference scan failed"
         );
 
 
         alert(
-            "Could not start reference scan.\n\n" +
-            error.message
+            error.message ||
+            "Unable to start reference scan."
         );
 
     }
@@ -4249,155 +3797,155 @@ async function startReferenceScanner() {
 // REFERENCE WIRELESS POLLING
 // ============================================================
 
-let referencePollTimer = null;
+function startWirelessReferencePolling() {
+
+    stopWirelessPolling();
 
 
-function startReferenceWirelessPolling(
-    referenceInfo
-) {
-
-    stopReferenceWirelessPolling();
-
-
-    referencePollTimer =
+    wirelessPollTimer =
         setInterval(
-            async function () {
+            async () => {
 
-                try {
-
-                    const result =
-                        await wirelessRequest(
-                            "/api/scan/status"
-                        );
-
-
-                    if (!result) {
-
-                        return;
-
-                    }
-
-
-                    if (
-                        result.type ===
-                        "scan_progress"
-                    ) {
-
-                        const frequency =
-                            Number(
-                                result.frequency
-                            );
-
-
-                        const progress =
-                            Number(
-                                result.progress
-                            );
-
-
-                        setReferenceScannerStatus(
-                            `Scanning... ${
-                                Number.isFinite(
-                                    frequency
-                                )
-                                    ? frequency + " Hz"
-                                    : ""
-                            } ${
-                                Number.isFinite(
-                                    progress
-                                )
-                                    ? progress + "%"
-                                    : ""
-                            }`
-                        );
-
-
-                        return;
-
-                    }
-
-
-                    if (
-                        result.type ===
-                            "scan_result" ||
-                        result.type ===
-                            "result" ||
-                        result.result
-                    ) {
-
-                        const scanResult =
-                            result.result ||
-                            result;
-
-
-                        stopReferenceWirelessPolling();
-
-
-                        referenceScannerRunning =
-                            false;
-
-
-                        await validateAndSaveReferenceResult(
-                            {
-                                ...referenceInfo,
-
-                                ...scanResult
-
-                            }
-                        );
-
-
-                        return;
-
-                    }
-
-
-                    if (
-                        result.type ===
-                        "scan_stopped"
-                    ) {
-
-                        stopReferenceWirelessPolling();
-
-
-                        referenceScannerRunning =
-                            false;
-
-
-                        setReferenceScannerStatus(
-                            "Reference scan stopped."
-                        );
-
-                    }
-
-                }
-
-                catch (error) {
-
-                    console.error(
-                        "Reference polling error:",
-                        error
-                    );
-
-                }
+                await pollReferenceScanStatus();
 
             },
-            700
+            1000
         );
+
+
+    pollReferenceScanStatus();
 
 }
 
 
-function stopReferenceWirelessPolling() {
+// ============================================================
+// POLL REFERENCE SCAN
+// ============================================================
 
-    if (referencePollTimer) {
+async function pollReferenceScanStatus() {
 
-        clearInterval(
-            referencePollTimer
+    if (!currentWirelessCommandId) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_commands")
+            .select("*")
+            .eq(
+                "id",
+                currentWirelessCommandId
+            )
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+            return;
+        }
+
+
+        const status =
+            String(
+                data.status || ""
+            ).toUpperCase();
+
+
+        if (status === "PENDING") {
+
+            updateScannerStatus(
+                "Waiting for ESP32..."
+            );
+
+            return;
+
+        }
+
+
+        if (status === "RUNNING") {
+
+            updateScannerStatus(
+                "ESP32 is performing reference scan..."
+            );
+
+            updateWirelessProgress(
+                data.progress,
+                data.current_frequency
+            );
+
+            return;
+
+        }
+
+
+        if (status === "COMPLETED") {
+
+            stopWirelessPolling();
+
+            await saveReferenceMeasurementFromCommand(
+                data
+            );
+
+            return;
+
+        }
+
+
+        if (status === "FAILED") {
+
+            stopWirelessPolling();
+
+            referenceScannerRunning = false;
+
+            updateScannerStatus(
+                "Reference scan failed"
+            );
+
+
+            alert(
+                data.error_message ||
+                "Reference scan failed."
+            );
+
+
+            clearWirelessState();
+
+            return;
+
+        }
+
+
+        if (status === "CANCELLED") {
+
+            stopWirelessPolling();
+
+            referenceScannerRunning = false;
+
+            updateScannerStatus(
+                "Reference scan cancelled"
+            );
+
+
+            clearWirelessState();
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Reference polling error:",
+            error
         );
-
-        referencePollTimer =
-            null;
 
     }
 
@@ -4405,74 +3953,227 @@ function stopReferenceWirelessPolling() {
 
 
 // ============================================================
-// VALIDATE AND SAVE REFERENCE RESULT
+// SAVE REFERENCE MEASUREMENT
 // ============================================================
 
-async function validateAndSaveReferenceResult(
-    result
+async function saveReferenceMeasurementFromCommand(
+    command
 ) {
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scan_measurements")
+            .select("*")
+            .eq(
+                "scan_id",
+                command.scan_id
+            )
+            .order(
+                "created_at",
+                {
+                    ascending: false
+                }
+            )
+            .limit(1)
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            throw new Error(
+                "Reference scan completed but measurement was not found."
+            );
+
+        }
+
+
+        const {
+            error: referenceError
+        } = await supabaseClient
+            .from("reference_measurements")
+            .insert({
+
+                reference_group_id:
+                    command.reference_group_id ||
+                    null,
+
+                age:
+                    command.reference_age,
+
+                gender:
+                    command.reference_gender,
+
+                f0:
+                    data.f0,
+
+                rms:
+                    data.rms,
+
+                q_factor:
+                    data.q_factor,
+
+                bandwidth:
+                    data.bandwidth,
+
+                measurement_side:
+                    data.measurement_side ||
+                    command.measurement_side
+
+            });
+
+
+        if (referenceError) {
+            throw referenceError;
+        }
+
+
+        referenceScannerRunning = false;
+
+
+        updateScannerStatus(
+            "Reference measurement saved"
+        );
+
+
+        displayMeasurementResult(
+            data
+        );
+
+
+        await loadAdminReferences();
+
+
+        clearWirelessState();
+
+
+    } catch (error) {
+
+        console.error(
+            "Saving reference measurement failed:",
+            error
+        );
+
+
+        referenceScannerRunning = false;
+
+
+        updateScannerStatus(
+            "Reference save failed"
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to save reference measurement."
+        );
+
+
+        clearWirelessState();
+
+    }
+
+}
+
+
+// ============================================================
+// MANUAL REFERENCE SAVE
+// ============================================================
+
+async function saveReferenceMeasurement() {
+
+    if (!isOperator() && !isAdmin()) {
+
+        alert(
+            "Operator or administrator access required."
+        );
+
+        return;
+
+    }
+
+
+    const ageInput =
+        document.getElementById(
+            "referenceAge"
+        );
+
+    const genderInput =
+        document.getElementById(
+            "referenceGender"
+        );
+
+    const f0Input =
+        document.getElementById(
+            "referenceF0"
+        );
+
+    const rmsInput =
+        document.getElementById(
+            "referenceRMS"
+        );
+
+    const qInput =
+        document.getElementById(
+            "referenceQ"
+        );
+
+    const bandwidthInput =
+        document.getElementById(
+            "referenceBandwidth"
+        );
+
+
+    const age =
+        parseInt(
+            ageInput?.value,
+            10
+        );
+
+    const gender =
+        genderInput?.value.trim() ||
+        "";
 
     const f0 =
         Number(
-            result.f0
+            f0Input?.value
         );
-
 
     const rms =
         Number(
-            result.rms
+            rmsInput?.value
         );
 
-
-    const qFactor =
+    const q =
         Number(
-            result.q_factor
+            qInput?.value
         );
-
 
     const bandwidth =
         Number(
-            result.bandwidth
+            bandwidthInput?.value
         );
 
 
-    if (!Number.isFinite(f0)) {
+    if (
+        !Number.isFinite(age) ||
+        !gender ||
+        !Number.isFinite(f0) ||
+        !Number.isFinite(rms) ||
+        !Number.isFinite(q) ||
+        !Number.isFinite(bandwidth)
+    ) {
 
         alert(
-            "Invalid reference result: missing F₀."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(rms)) {
-
-        alert(
-            "Invalid reference result: missing RMS."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(qFactor)) {
-
-        alert(
-            "Invalid reference result: missing Q-factor."
-        );
-
-        return;
-
-    }
-
-
-    if (!Number.isFinite(bandwidth)) {
-
-        alert(
-            "Invalid reference result: missing bandwidth."
+            "Please enter all reference measurement values."
         );
 
         return;
@@ -4482,215 +4183,17 @@ async function validateAndSaveReferenceResult(
 
     try {
 
-        await saveScannerReferenceMeasurement({
-
-            ...result,
-
-            f0:
-                f0,
-
-            rms:
-                rms,
-
-            q_factor:
-                qFactor,
-
-            bandwidth:
-                bandwidth
-
-        });
-
-
-        setReferenceScannerStatus(
-            "Reference measurement saved successfully."
-        );
-
-
-        alert(
-            "Reference acoustic measurement saved successfully."
-        );
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Reference result save error:",
+        const {
             error
-        );
-
-
-        setReferenceScannerStatus(
-            "Reference scan completed, but saving failed."
-        );
-
-
-        alert(
-            "Reference scan completed, but the measurement could not be saved.\n\n" +
-            error.message
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// REFERENCE SCANNER STATUS
-// ============================================================
-
-function setReferenceScannerStatus(
-    message
-) {
-
-    const element =
-        document.getElementById(
-            "referenceScannerStatus"
-        );
-
-
-    if (element) {
-
-        element.textContent =
-            "Scanner status: " +
-            message;
-
-    }
-
-}
-
-
-// ============================================================
-// STOP REFERENCE SCANNER
-// ============================================================
-
-async function stopReferenceScanner() {
-
-    stopReferenceWirelessPolling();
-
-
-    if (referenceScannerRunning) {
-
-        try {
-
-            await wirelessRequest(
-                "/api/scan/stop",
-                {
-                    method: "POST",
-
-                    body:
-                        JSON.stringify({
-                            command:
-                                "stop_scan"
-                        })
-                }
-            );
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "Stop reference scanner error:",
-                error
-            );
-
-        }
-
-    }
-
-
-    referenceScannerRunning =
-        false;
-
-
-    setReferenceScannerStatus(
-        "Stopped."
-    );
-
-}
-
-
-// ============================================================
-// SAVE SCANNER REFERENCE MEASUREMENT
-// ============================================================
-
-async function saveScannerReferenceMeasurement(
-    result
-) {
-
-    if (!result) {
-
-        throw new Error(
-            "Scanner result is missing."
-        );
-
-    }
-
-
-    const f0 =
-        Number(
-            result.f0
-        );
-
-
-    const rms =
-        Number(
-            result.rms
-        );
-
-
-    const qFactor =
-        Number(
-            result.q_factor
-        );
-
-
-    const bandwidth =
-        Number(
-            result.bandwidth
-        );
-
-
-    if (
-        !Number.isFinite(f0) ||
-        !Number.isFinite(rms) ||
-        !Number.isFinite(qFactor) ||
-        !Number.isFinite(bandwidth)
-    ) {
-
-        throw new Error(
-            "Invalid scanner reference measurement."
-        );
-
-    }
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "reference_measurements"
-            )
+        } = await supabaseClient
+            .from("reference_measurements")
             .insert({
 
-                sample_id:
-                    result.sample_id,
-
-                reference_id:
-                    result.reference_id ||
-                    null,
-
                 age:
-                    result.age,
+                    age,
 
                 gender:
-                    result.gender,
-
-                measurement_side:
-                    result.measurement_side,
+                    gender,
 
                 f0:
                     f0,
@@ -4699,580 +4202,81 @@ async function saveScannerReferenceMeasurement(
                     rms,
 
                 q_factor:
-                    qFactor,
+                    q,
 
                 bandwidth:
-                    bandwidth,
+                    bandwidth
 
-                notes:
-                    result.notes ||
-                    null
-
-            })
-            .select()
-            .single();
+            });
 
 
-    if (error) {
-
-        console.error(
-            "Scanner reference save error:",
-            error
-        );
-
-        throw error;
-
-    }
-
-
-    referenceScannerRunning =
-        false;
-
-
-    setReferenceScannerStatus(
-        "Measurement saved successfully."
-    );
-
-
-    await loadAdminReferences();
-
-
-    return data;
-
-}
-
-
-// ============================================================
-// RENDER REFERENCE TABLE
-// ============================================================
-
-function renderReferenceTable(
-    data,
-    allowDelete
-) {
-
-    const table =
-        document.getElementById(
-            "referenceTable"
-        );
-
-
-    if (!table) {
-
-        return;
-
-    }
-
-
-    table.innerHTML = "";
-
-
-    if (
-        !data ||
-        !data.length
-    ) {
-
-        table.innerHTML =
-            `<tr>
-                <td colspan="11">
-                    No reference measurements found.
-                </td>
-             </tr>`;
-
-        return;
-
-    }
-
-
-    data.forEach(
-        function (reference) {
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-
-            let action = "";
-
-
-            if (allowDelete) {
-
-                action = `
-
-                    <button
-                        class="danger"
-                        onclick="deleteReferenceMeasurement('${escapeHTMLAttribute(reference.id)}')"
-                    >
-                        Delete
-                    </button>
-
-                `;
-
-            }
-
-
-            row.innerHTML = `
-
-                <td>
-                    ${escapeHTML(
-                        reference.sample_id ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.reference_id ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        String(
-                            reference.age ??
-                            ""
-                        )
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.gender ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.measurement_side ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.f0
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.rms
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.q_factor
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.bandwidth
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        reference.created_at
-                    )}
-                </td>
-
-                <td>
-                    ${action}
-                </td>
-
-            `;
-
-
-            table.appendChild(row);
-
+        if (error) {
+            throw error;
         }
-    );
 
-}
-
-
-// ============================================================
-// DELETE REFERENCE MEASUREMENT
-// ============================================================
-
-async function deleteReferenceMeasurement(
-    id
-) {
-
-    if (
-        !currentProfile ||
-        currentProfile.role !==
-            "admin"
-    ) {
 
         alert(
-            "Only an admin can delete reference measurements."
-        );
-
-        return;
-
-    }
-
-
-    const confirmed =
-        confirm(
-            "Are you sure you want to delete this reference measurement?\n\n" +
-            "This action cannot be undone."
+            "Reference measurement saved."
         );
 
 
-    if (!confirmed) {
-
-        return;
-
-    }
+        await loadAdminReferences();
 
 
-    const {
-        error
-    } =
-        await supabaseClient
-            .from(
-                "reference_measurements"
-            )
-            .delete()
-            .eq(
-                "id",
-                id
-            );
-
-
-    if (error) {
+    } catch (error) {
 
         console.error(
-            "Delete reference error:",
+            "Manual reference save error:",
             error
         );
 
         alert(
-            "Could not delete reference measurement:\n\n" +
-            error.message
+            error.message ||
+            "Unable to save reference measurement."
         );
 
-        return;
-
     }
-
-
-    alert(
-        "Reference measurement deleted successfully."
-    );
-
-
-    await loadAdminReferences();
 
 }
 
 
 // ============================================================
-// OPERATOR REFERENCE DATABASE
+// PATIENT DASHBOARD
 // ============================================================
 
-async function loadReferenceGroups() {
+async function loadPatientDashboard() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "reference_measurements"
-            )
-            .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
+    console.log(
+        "Loading patient dashboard..."
+    );
 
 
-    if (error) {
-
-        console.error(
-            "Operator reference error:",
-            error
-        );
-
-        return;
-
-    }
-
-
-    const references =
-        data || [];
-
-
-    const table =
+    const linkingCodeElement =
         document.getElementById(
-            "referenceList"
+            "patientLinkingCode"
         );
 
 
-    if (!table) {
+    if (linkingCodeElement) {
 
-        return;
-
-    }
-
-
-    table.innerHTML = "";
-
-
-    if (!references.length) {
-
-        table.innerHTML =
-            `<tr>
-                <td colspan="10">
-                    No reference measurements found.
-                </td>
-             </tr>`;
-
-        return;
+        linkingCodeElement.value =
+            "";
 
     }
-
-
-    references.forEach(
-        function (reference) {
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-
-            row.innerHTML = `
-
-                <td>
-                    ${escapeHTML(
-                        reference.sample_id ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.reference_id ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        String(
-                            reference.age ??
-                            ""
-                        )
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.gender ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${escapeHTML(
-                        reference.measurement_side ||
-                        ""
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.f0
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.rms
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.q_factor
-                    )}
-                </td>
-
-                <td>
-                    ${formatNumber(
-                        reference.bandwidth
-                    )}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        reference.created_at
-                    )}
-                </td>
-
-            `;
-
-
-            table.appendChild(row);
-
-        }
-    );
 
 }
 
 
 // ============================================================
-// SCANNER DEVICES
+// PATIENT ACCESS USING LINKING CODE
 // ============================================================
 
-async function loadScannerDevices() {
+async function accessPatientResults() {
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from(
-                "scanner_devices"
-            )
-            .select("*")
-            .order(
-                "created_at",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (error) {
-
-        console.error(
-            "Scanner devices error:",
-            error
-        );
-
-
-        const element =
-            document.getElementById(
-                "adminScannerDevices"
-            );
-
-
-        if (element) {
-
-            element.textContent =
-                "Unable to load scanner devices.";
-
-        }
-
-
-        return;
-
-    }
-
-
-    const devices =
-        data || [];
-
-
-    const container =
+    const input =
         document.getElementById(
-            "adminScannerDevices"
+            "patientLinkingCode"
         );
-
-
-    if (!container) {
-
-        return;
-
-    }
-
-
-    container.innerHTML = "";
-
-
-    if (!devices.length) {
-
-        container.innerHTML =
-            "No scanner devices registered.";
-
-        return;
-
-    }
-
-
-    devices.forEach(
-        function (device) {
-
-            const div =
-                document.createElement(
-                    "div"
-                );
-
-
-            div.className =
-                "patient-card";
-
-
-            div.innerHTML = `
-
-                <strong>
-                    ${escapeHTML(
-                        device.device_id ||
-                        ""
-                    )}
-                </strong>
-
-                <p>
-                    Status:
-                    ${device.active
-                        ? "Active"
-                        : "Inactive"}
-                </p>
-
-                <p>
-                    Created:
-                    ${formatDate(
-                        device.created_at
-                    )}
-                </p>
-
-            `;
-
-
-            container.appendChild(div);
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// PATIENT ACCESS
-// ============================================================
-
-async function patientAccess() {
-
-    const code =
-        document
-            .getElementById(
-                "patientLinkingCode"
-            )
-            ?.value
-            .trim();
-
 
     const message =
         document.getElementById(
@@ -5280,11 +4284,17 @@ async function patientAccess() {
         );
 
 
-    if (!/^\d{6}$/.test(code)) {
+    const linkingCode =
+        input
+            ? input.value.trim().toUpperCase()
+            : "";
+
+
+    if (!linkingCode) {
 
         setMessage(
             message,
-            "Please enter a valid 6-digit linking code.",
+            "Enter your linking code.",
             "error"
         );
 
@@ -5295,62 +4305,58 @@ async function patientAccess() {
 
     setMessage(
         message,
-        "Loading patient results...",
+        "Loading measurements...",
         "info"
     );
 
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
             .rpc(
                 "get_patient_results",
                 {
                     p_linking_code:
-                        code
+                        linkingCode
                 }
             );
 
 
-    if (error) {
+        if (error) {
+            throw error;
+        }
+
+
+        displayPatientResults(
+            data || []
+        );
+
+
+        setMessage(
+            message,
+            "Results loaded.",
+            "success"
+        );
+
+
+    } catch (error) {
 
         console.error(
-            "Patient access error:",
+            "Patient result access error:",
             error
         );
 
         setMessage(
             message,
-            "Unable to access patient results.",
+            error.message ||
+            "Unable to retrieve results.",
             "error"
         );
 
-        return;
-
     }
-
-
-    if (
-        !data ||
-        data.length === 0
-    ) {
-
-        setMessage(
-            message,
-            "No patient was found for this linking code.",
-            "error"
-        );
-
-        return;
-
-    }
-
-
-    displayPatientResults(
-        data
-    );
 
 }
 
@@ -5360,257 +4366,576 @@ async function patientAccess() {
 // ============================================================
 
 function displayPatientResults(
-    data
+    results
 ) {
 
-    const first =
-        data[0];
-
-
-    document
-        .getElementById(
-            "loginScreen"
-        )
-        ?.classList
-        .add("hidden");
-
-
-    document
-        .getElementById(
-            "dashboard"
-        )
-        ?.classList
-        .add("hidden");
-
-
-    document
-        .getElementById(
-            "patientResultScreen"
-        )
-        ?.classList
-        .remove("hidden");
-
-
-    const patientDetails =
+    const container =
         document.getElementById(
-            "patientDetails"
+            "patientResults"
         );
 
 
-    if (patientDetails) {
-
-        patientDetails.innerHTML = `
-
-            <div class="patient-card">
-
-                <h3>
-                    ${escapeHTML(
-                        first.patient_name ||
-                        ""
-                    )}
-                </h3>
-
-                <p>
-                    Patient ID:
-                    ${escapeHTML(
-                        first.patient_id ||
-                        ""
-                    )}
-                </p>
-
-                <p>
-                    Age:
-                    ${escapeHTML(
-                        String(
-                            first.patient_age ??
-                            ""
-                        )
-                    )}
-                </p>
-
-                <p>
-                    Gender:
-                    ${escapeHTML(
-                        first.patient_gender ||
-                        ""
-                    )}
-                </p>
-
-            </div>
-
-        `;
-
+    if (!container) {
+        return;
     }
 
 
-    const results =
-        document.getElementById(
-            "patientScanResults"
-        );
+    if (
+        !results ||
+        results.length === 0
+    ) {
 
-
-    if (!results) {
+        container.innerHTML =
+            "<p>No measurements available.</p>";
 
         return;
 
     }
 
 
-    results.innerHTML = "";
+    container.innerHTML =
+        results.map(result => {
+
+            return `
+                <div class="patient-result-card">
+
+                    <div>
+                        <strong>
+                            Acoustic Measurement
+                        </strong>
+
+                        <div>
+                            Date:
+                            ${formatDate(
+                                result.created_at
+                            )}
+                        </div>
+
+                        <div>
+                            Side:
+                            ${escapeHTML(
+                                result.measurement_side ||
+                                "—"
+                            )}
+                        </div>
+
+                    </div>
+
+                    <div>
+                        <div>
+                            Resonance Frequency:
+                            <strong>
+                                ${formatNumber(
+                                    result.f0,
+                                    2
+                                )} Hz
+                            </strong>
+                        </div>
+
+                        <div>
+                            RMS:
+                            <strong>
+                                ${formatNumber(
+                                    result.rms,
+                                    3
+                                )}
+                            </strong>
+                        </div>
+
+                        <div>
+                            Q Factor:
+                            <strong>
+                                ${formatNumber(
+                                    result.q_factor,
+                                    3
+                                )}
+                            </strong>
+                        </div>
+
+                        <div>
+                            Bandwidth:
+                            <strong>
+                                ${formatNumber(
+                                    result.bandwidth,
+                                    2
+                                )} Hz
+                            </strong>
+                        </div>
+                    </div>
+
+                </div>
+            `;
+
+        }).join("");
+
+}
 
 
-    const validScans =
-        data.filter(
-            function (item) {
+// ============================================================
+// REFERENCE COMPARISON
+// ============================================================
 
-                return item.scan_id;
+async function compareMeasurementWithReference(
+    measurement
+) {
+
+    if (!measurement) {
+        return null;
+    }
+
+
+    const age =
+        currentPatient?.age;
+
+
+    const gender =
+        currentPatient?.gender;
+
+
+    if (
+        !Number.isFinite(
+            Number(age)
+        ) ||
+        !gender
+    ) {
+
+        return {
+            available: false,
+            message:
+                "Patient age or gender is unavailable."
+        };
+
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("reference_measurements")
+            .select("*")
+            .eq(
+                "gender",
+                gender
+            )
+            .gte(
+                "age",
+                Number(age) - 2
+            )
+            .lte(
+                "age",
+                Number(age) + 2
+            );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (
+            !data ||
+            data.length < 2
+        ) {
+
+            return {
+                available: false,
+                message:
+                    "Insufficient reference data."
+            };
+
+        }
+
+
+        const metrics = [
+            "f0",
+            "rms",
+            "q_factor",
+            "bandwidth"
+        ];
+
+
+        const comparison = {};
+
+
+        for (const metric of metrics) {
+
+            const values =
+                data
+                    .map(
+                        row =>
+                            Number(
+                                row[metric]
+                            )
+                    )
+                    .filter(
+                        Number.isFinite
+                    );
+
+
+            if (values.length < 2) {
+
+                comparison[metric] = {
+                    available: false
+                };
+
+                continue;
 
             }
-        );
 
 
-    if (!validScans.length) {
-
-        results.innerHTML =
-            `<div class="empty">
-                No scan measurements are available yet.
-             </div>`;
-
-        return;
-
-    }
+            const mean =
+                values.reduce(
+                    (sum, value) =>
+                        sum + value,
+                    0
+                ) /
+                values.length;
 
 
-    validScans.forEach(
-        function (scan) {
-
-            const div =
-                document.createElement(
-                    "div"
+            const variance =
+                values.reduce(
+                    (sum, value) =>
+                        sum +
+                        Math.pow(
+                            value - mean,
+                            2
+                        ),
+                    0
+                ) /
+                (
+                    values.length - 1
                 );
 
 
-            div.className =
-                "patient-result";
+            const sd =
+                Math.sqrt(
+                    variance
+                );
 
 
-            div.innerHTML = `
-
-                <h3>
-                    Scan:
-                    ${escapeHTML(
-                        scan.scan_id ||
-                        ""
-                    )}
-                </h3>
-
-                <p>
-                    Date:
-                    ${formatDate(
-                        scan.scan_date
-                    )}
-                </p>
-
-                <p>
-                    Measurement side:
-                    ${escapeHTML(
-                        scan.measurement_side ||
-                        "Not specified"
-                    )}
-                </p>
-
-                <p>
-                    F₀:
-                    ${formatNumber(
-                        scan.f0
-                    )}
-                    Hz
-                </p>
-
-                <p>
-                    RMS:
-                    ${formatNumber(
-                        scan.rms
-                    )}
-                </p>
-
-                <p>
-                    Q Factor:
-                    ${formatNumber(
-                        scan.q_factor
-                    )}
-                </p>
-
-                <p>
-                    Bandwidth:
-                    ${formatNumber(
-                        scan.bandwidth
-                    )}
-                    Hz
-                </p>
-
-                <p>
-                    Comparison:
-                    ${escapeHTML(
-                        scan.comparison_status ||
-                        "Not available"
-                    )}
-                </p>
-
-            `;
+            const measured =
+                Number(
+                    measurement[metric]
+                );
 
 
-            results.appendChild(
-                div
-            );
+            const deviation =
+                mean !== 0
+                    ? (
+                        (
+                            measured -
+                            mean
+                        ) /
+                        mean
+                    ) * 100
+                    : null;
+
+
+            const zScore =
+                sd > 0
+                    ? (
+                        measured -
+                        mean
+                    ) /
+                    sd
+                    : null;
+
+
+            comparison[metric] = {
+
+                available:
+                    Number.isFinite(
+                        measured
+                    ),
+
+                measured:
+                    measured,
+
+                mean:
+                    mean,
+
+                sd:
+                    sd,
+
+                deviationPercent:
+                    deviation,
+
+                zScore:
+                    zScore
+
+            };
 
         }
+
+
+        return {
+
+            available:
+                true,
+
+            sampleCount:
+                data.length,
+
+            comparison
+
+        };
+
+
+    } catch (error) {
+
+        console.error(
+            "Reference comparison error:",
+            error
+        );
+
+
+        return {
+
+            available:
+                false,
+
+            message:
+                "Reference comparison could not be completed."
+
+        };
+
+    }
+
+}
+
+
+// ============================================================
+// UPDATE SCANNER STATUS
+// ============================================================
+
+function updateScannerStatus(
+    message
+) {
+
+    const elements = [
+
+        document.getElementById(
+            "scannerStatus"
+        ),
+
+        document.getElementById(
+            "operatorScannerStatus"
+        )
+
+    ];
+
+
+    elements.forEach(element => {
+
+        if (element) {
+
+            element.textContent =
+                message || "Ready";
+
+        }
+
+    });
+
+}
+
+
+// ============================================================
+// SET SCANNER STATUS
+// ============================================================
+
+function setScannerStatus(
+    message,
+    type = "info"
+) {
+
+    updateScannerStatus(
+        message
+    );
+
+
+    const element =
+        document.getElementById(
+            "scannerStatus"
+        );
+
+
+    if (element) {
+
+        element.dataset.status =
+            type;
+
+    }
+
+}
+
+
+// ============================================================
+// LEGACY ESP32 CONNECTION FUNCTIONS
+//
+// The actual scan communication is through Supabase.
+// These functions are retained so the existing scanner
+// connection section in index.html does not break.
+//
+// No USB / navigator.serial is used.
+// ============================================================
+
+async function connectESP32() {
+
+    updateScannerStatus(
+        "Checking scanner device..."
+    );
+
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("scanner_devices")
+            .select("*")
+            .eq(
+                "device_id",
+                SCANNER_DEVICE_ID
+            )
+            .maybeSingle();
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        if (!data) {
+
+            updateScannerStatus(
+                "Scanner device not found"
+            );
+
+            alert(
+                "ABS-001 was not found in scanner_devices."
+            );
+
+            return false;
+
+        }
+
+
+        if (data.is_active === false) {
+
+            updateScannerStatus(
+                "Scanner device inactive"
+            );
+
+            alert(
+                "ABS-001 is marked inactive."
+            );
+
+            return false;
+
+        }
+
+
+        updateScannerStatus(
+            "Scanner connected through Supabase"
+        );
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "Scanner connection check failed:",
+            error
+        );
+
+
+        updateScannerStatus(
+            "Scanner connection check failed"
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to check scanner."
+        );
+
+
+        return false;
+
+    }
+
+}
+
+
+// ============================================================
+// DISCONNECT ESP32
+//
+// No physical disconnect is performed because the ESP32
+// communicates through Wi-Fi/Supabase.
+// ============================================================
+
+function disconnectESP32() {
+
+    stopWirelessPolling();
+
+
+    patientScannerRunning = false;
+    referenceScannerRunning = false;
+
+
+    clearWirelessState();
+
+
+    updateScannerStatus(
+        "Scanner disconnected"
     );
 
 }
 
 
 // ============================================================
-// BACK TO LOGIN
+// GET ESP32 BASE URL
+//
+// Kept only for compatibility with older HTML.
+// Direct browser-to-ESP32 communication is NOT used.
 // ============================================================
 
-function backToLogin() {
+function getESP32BaseUrl() {
 
-    document
-        .getElementById(
-            "patientResultScreen"
-        )
-        ?.classList
-        .add("hidden");
+    return "";
+
+}
 
 
-    const code =
-        document.getElementById(
-            "patientLinkingCode"
-        );
+// ============================================================
+// WIRELESS REQUEST
+//
+// Intentionally disabled for direct browser-to-ESP32 calls.
+// ESP32 communication is handled through Supabase.
+// ============================================================
+
+async function wirelessRequest() {
+
+    throw new Error(
+        "Direct ESP32 browser communication is not used. The scanner communicates through Supabase."
+    );
+
+}
 
 
-    if (code) {
+// ============================================================
+// LEGACY DIRECT-SCAN STATUS
+// ============================================================
 
-        code.value = "";
+async function pollDirectESP32Status() {
 
-    }
-
-
-    const message =
-        document.getElementById(
-            "patientAccessMessage"
-        );
-
-
-    if (message) {
-
-        message.innerHTML = "";
-
-    }
-
-
-    showLogin();
+    return null;
 
 }
 
@@ -5621,168 +4946,122 @@ function backToLogin() {
 
 function closePatientModal() {
 
-    document
-        .getElementById(
+    const modal =
+        document.getElementById(
             "patientModal"
-        )
-        ?.classList
-        .add("hidden");
+        );
+
+
+    if (modal) {
+
+        modal.style.display =
+            "none";
+
+    }
 
 }
 
 
 // ============================================================
-// LOGOUT
+// SCANNER STATUS HELPERS
 // ============================================================
 
-async function logout() {
+function scannerIsBusy() {
 
-    stopWirelessScanPolling();
-
-    stopReferenceWirelessPolling();
-
-
-    try {
-
-        const {
-            error
-        } =
-            await supabaseClient
-                .auth
-                .signOut();
-
-
-        if (error) {
-
-            console.error(
-                "Logout error:",
-                error
-            );
-
-        }
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Logout exception:",
-            error
-        );
-
-    }
-
-
-    currentUser =
-        null;
-
-    currentProfile =
-        null;
-
-    currentPatient =
-        null;
-
-    currentMeasurementSide =
-        null;
-
-
-    patientScannerRunning =
-        false;
-
-    referenceScannerRunning =
-        false;
-
-    esp32Connected =
-        false;
-
-
-    const email =
-        document.getElementById(
-            "loginEmail"
-        );
-
-
-    const password =
-        document.getElementById(
-            "loginPassword"
-        );
-
-
-    const message =
-        document.getElementById(
-            "loginMessage"
-        );
-
-
-    if (email) {
-
-        email.value = "";
-
-    }
-
-
-    if (password) {
-
-        password.value = "";
-
-    }
-
-
-    if (message) {
-
-        message.innerHTML = "";
-
-    }
-
-
-    showLogin();
+    return (
+        patientScannerRunning ||
+        referenceScannerRunning
+    );
 
 }
 
 
 // ============================================================
-// MESSAGE HELPER
+// ADMIN CHECK
+// ============================================================
+
+function isAdmin() {
+
+    return (
+        String(
+            currentProfile?.role || ""
+        ).toUpperCase() ===
+        "ADMIN"
+    );
+
+}
+
+
+// ============================================================
+// OPERATOR CHECK
+// ============================================================
+
+function isOperator() {
+
+    return (
+        String(
+            currentProfile?.role || ""
+        ).toUpperCase() ===
+        "OPERATOR"
+    );
+
+}
+
+
+// ============================================================
+// SET MESSAGE
 // ============================================================
 
 function setMessage(
-    element,
-    text,
-    type
+    elementOrId,
+    message,
+    type = "info"
 ) {
 
+    const element =
+        typeof elementOrId === "string"
+            ? document.getElementById(
+                elementOrId
+            )
+            : elementOrId;
+
+
     if (!element) {
-
         return;
-
     }
 
 
-    element.innerHTML =
-        `<div class="message ${escapeHTML(type)}">
-            ${escapeHTML(text)}
-         </div>`;
+    element.textContent =
+        message || "";
+
+
+    element.dataset.type =
+        type;
+
+
+    element.classList.remove(
+        "success",
+        "error",
+        "warning",
+        "info"
+    );
+
+
+    element.classList.add(
+        type
+    );
 
 }
 
 
 // ============================================================
-// NUMBER FORMATTER
+// FORMAT NUMBER
 // ============================================================
 
 function formatNumber(
-    value
+    value,
+    decimals = 2
 ) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
-
-        return "—";
-
-    }
-
 
     const number =
         Number(value);
@@ -5795,13 +5074,15 @@ function formatNumber(
     }
 
 
-    return number.toFixed(3);
+    return number.toFixed(
+        decimals
+    );
 
 }
 
 
 // ============================================================
-// DATE FORMATTER
+// FORMAT DATE
 // ============================================================
 
 function formatDate(
@@ -5809,9 +5090,7 @@ function formatDate(
 ) {
 
     if (!value) {
-
         return "—";
-
     }
 
 
@@ -5830,13 +5109,52 @@ function formatDate(
     }
 
 
-    return date.toLocaleString();
+    return date.toLocaleString(
+        undefined,
+        {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
 
 }
 
 
 // ============================================================
-// HTML ESCAPE
+// NULLABLE NUMBER
+// ============================================================
+
+function toNullableNumber(
+    value
+) {
+
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+
+        return null;
+
+    }
+
+
+    const number =
+        Number(value);
+
+
+    return Number.isFinite(number)
+        ? number
+        : null;
+
+}
+
+
+// ============================================================
+// ESCAPE HTML
 // ============================================================
 
 function escapeHTML(
@@ -5879,57 +5197,136 @@ function escapeHTML(
 
 
 // ============================================================
-// HTML ATTRIBUTE ESCAPE
+// DELAY
 // ============================================================
 
-function escapeHTMLAttribute(
-    value
+function delay(
+    milliseconds
 ) {
 
-    return escapeHTML(
-        value
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                milliseconds
+            )
     );
 
 }
 
 
 // ============================================================
-// SAFE JSON FOR INLINE HTML
+// NAVIGATION HELPERS
 // ============================================================
 
-function safeJSONString(
-    value
+function showSection(
+    sectionId
 ) {
 
-    return JSON.stringify(
-        value
-    )
-        .replace(
-            /\\/g,
-            "\\\\"
-        )
-        .replace(
-            /'/g,
-            "\\'"
-        )
-        .replace(
-            /</g,
-            "\\u003c"
-        )
-        .replace(
-            />/g,
-            "\\u003e"
-        )
-        .replace(
-            /&/g,
-            "\\u0026"
+    const sections =
+        document.querySelectorAll(
+            "[data-section]"
         );
+
+
+    sections.forEach(section => {
+
+        section.style.display =
+            section.dataset.section ===
+            sectionId
+                ? ""
+                : "none";
+
+    });
 
 }
 
 
 // ============================================================
-// EXPOSE FUNCTIONS TO HTML
+// REFRESH CURRENT DASHBOARD
+// ============================================================
+
+async function refreshDashboard() {
+
+    if (!currentProfile) {
+        return;
+    }
+
+
+    await loadDashboard();
+
+}
+
+
+// ============================================================
+// CLOSE MODALS WHEN CLICKING OUTSIDE
+// ============================================================
+
+document.addEventListener(
+    "click",
+    event => {
+
+        const patientModal =
+            document.getElementById(
+                "patientModal"
+            );
+
+        const adminModal =
+            document.getElementById(
+                "adminPatientModal"
+            );
+
+
+        if (
+            patientModal &&
+            event.target === patientModal
+        ) {
+
+            closePatientModal();
+
+        }
+
+
+        if (
+            adminModal &&
+            event.target === adminModal
+        ) {
+
+            closeAdminPatientModal();
+
+        }
+
+    }
+);
+
+
+// ============================================================
+// KEYBOARD ESCAPE
+// ============================================================
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key !== "Escape"
+        ) {
+            return;
+        }
+
+
+        closePatientModal();
+
+        closeAdminPatientModal();
+
+    }
+);
+
+
+// ============================================================
+// WINDOW EXPORTS
+//
+// Required because index.html uses onclick="..." handlers.
 // ============================================================
 
 window.login =
@@ -5938,11 +5335,35 @@ window.login =
 window.logout =
     logout;
 
-window.patientAccess =
-    patientAccess;
+window.loadDashboard =
+    loadDashboard;
 
-window.backToLogin =
-    backToLogin;
+window.loadAdminDashboard =
+    loadAdminDashboard;
+
+window.loadOperatorDashboard =
+    loadOperatorDashboard;
+
+window.loadPatientDashboard =
+    loadPatientDashboard;
+
+window.loadAllUsers =
+    loadAllUsers;
+
+window.loadAllSubjects =
+    loadAllSubjects;
+
+window.loadAllScans =
+    loadAllScans;
+
+window.loadAdminReferences =
+    loadAdminReferences;
+
+window.loadScannerDevices =
+    loadScannerDevices;
+
+window.loadSubjects =
+    loadSubjects;
 
 window.createPatient =
     createPatient;
@@ -5959,6 +5380,9 @@ window.createAdminPatient =
 window.deletePatient =
     deletePatient;
 
+window.selectAdminPatient =
+    selectAdminPatient;
+
 window.selectPatient =
     selectPatient;
 
@@ -5974,40 +5398,50 @@ window.stopPatientScan =
 window.cancelScanPreparation =
     cancelScanPreparation;
 
+window.savePatientMeasurement =
+    savePatientMeasurement;
+
+window.generateScanId =
+    generateScanId;
+
+window.loadScans =
+    loadScans;
+
+window.deletePatientMeasurement =
+    deletePatientMeasurement;
+
+window.startReferenceScanner =
+    startReferenceScanner;
+
+window.saveReferenceMeasurement =
+    saveReferenceMeasurement;
+
+window.accessPatientResults =
+    accessPatientResults;
+
+window.compareMeasurementWithReference =
+    compareMeasurementWithReference;
+
+window.closePatientModal =
+    closePatientModal;
+
 window.connectESP32 =
     connectESP32;
 
 window.disconnectESP32 =
     disconnectESP32;
 
-window.deletePatientMeasurement =
-    deletePatientMeasurement;
+window.getESP32BaseUrl =
+    getESP32BaseUrl;
 
-window.showReferenceTab =
-    showReferenceTab;
+window.wirelessRequest =
+    wirelessRequest;
 
-window.addManualReference =
-    addManualReference;
+window.refreshDashboard =
+    refreshDashboard;
 
-window.startReferenceScanner =
-    startReferenceScanner;
-
-window.stopReferenceScanner =
-    stopReferenceScanner;
-
-window.deleteReferenceMeasurement =
-    deleteReferenceMeasurement;
-
-window.closePatientModal =
-    closePatientModal;
-
-
-// Real scanner result functions.
-window.savePatientMeasurement =
-    savePatientMeasurement;
-
-window.saveScannerReferenceMeasurement =
-    saveScannerReferenceMeasurement;
+window.showSection =
+    showSection;
 
 
 // ============================================================
